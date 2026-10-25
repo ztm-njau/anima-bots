@@ -1,0 +1,13 @@
+# Last-line output filter. It only checks what she is about to send, never what people say.
+# The persona already steers her away from these topics; this catches slips that could get a
+# platform account restricted. Extend the word lists to match your platforms' rules.
+
+allowed_domains = ["bilibili.com", "b23.tv", "douyin.com", "qq.com"]
+
+[blocked.politics]
+words = ["习近平", "共产党", "六四", "天安门事件", "法轮功", "台独", "藏独", "疆独", "翻墙软件"]
+deflections = ["这个话题我就不掺和啦，聊点别的", "唔，这个我不太懂，也不想乱说", "换个话题换个话题，聊聊今晚吃啥"]
+
+[blocked.adult]
+words = ["约炮", "裸聊", "色情网站"]
+deflections = ["咳，这个不行", "打住打住，换个话题[sticker:facepalm]"]

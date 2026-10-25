@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "playground-demo",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--offline", "anima", "play", "claudette", "--demo", "--port", "8765"],
+      "port": 8765
+    },
+    {
+      "name": "playground",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--offline", "anima", "play", "claudette", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}

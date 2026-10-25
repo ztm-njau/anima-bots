@@ -1,0 +1,89 @@
+# {{name}}: describe the character in one line.
+# Behaviour lives here. Her soul lives in persona.md / examples.md. Secrets live in ../../.env.
+
+skills = ["*"]                      # every built-in skill; e.g. ["*", "-weather"] to drop one
+
+[identity]
+name = "{{name}}"
+display_name = "{{name}}"
+aliases = ["{{name}}"]
+timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever this Mac is
+
+[llm]
+provider = "anthropic"
+model = "claude-opus-5-5"
+effort = "low"                      # chat replies; raise to "medium" for deeper conversations
+side_model = "claude-opus-5-5"      # diary, daily plan, memory reflection ("claude-haiku-5-5" costs ~1/40)
+side_effort = "low"
+max_tokens = 4000
+web_search = true                   # lets her look up fresh facts, at most 2 searches per reply
+fallbacks = true                    # server-side refusal fallback, so a declined request still gets an answer
+vision = true                       # she can see images people send
+
+# A cheaper or local brain instead (any OpenAI-compatible endpoint):
+# provider = "openai_compat"
+# base_url = "https://api.deepseek.com"   # or http://localhost:1234/v1 for LM Studio
+# model = "deepseek-chat"
+# api_key_env = "DEEPSEEK_API_KEY"
+# vision = false
+
+[behavior]
+group_chattiness = 0.08             # base chance to chime in unprompted in a group
+interest_boost = 0.25               # extra chance when the topic is one of her interests
+interests = []
+cooldown_seconds = 90
+max_bubbles = 5
+debounce_private = 2.5              # wait this long for someone to finish typing in DMs
+debounce_group = 4.0
+typing_cps = 6.0                    # phone typing speed, characters per second
+delays = true                       # false = instant replies (debugging only)
+history_limit = 40
+
+[life]
+daily_plan = true
+diary = true
+diary_time = "23:20"
+insomnia_chance = 0.04
+greet_groups = []                   # chat keys like "qq:group:123456789"
+idle_chatter = true
+idle_chatter_hours = 3.0
+
+[safety]
+honest_about_ai = true
+max_messages_per_minute = 12
+max_messages_per_chat_per_minute = 6
+
+# ------------------------------------------------------------ platforms
+
+[platforms.playground]              # local web UI, no account needed
+enabled = true
+port = 8765
+
+[platforms.qq]                      # via NapCat (OneBot v11), see docs/platforms/qq.md
+enabled = false
+url = "ws://127.0.0.1:3001"
+token_env = "ONEBOT_TOKEN"
+groups = []                         # group numbers she may speak in; empty = none
+listen_groups = []                  # groups where she only listens
+accept_friend_requests = false
+input_status = true                 # show "对方正在输入..." in DMs
+
+[platforms.bilibili]                # see docs/platforms/bilibili.md
+enabled = false
+private_messages = true
+replies_and_mentions = true
+live_rooms = []                     # live room ids where she hangs out as a viewer
+post_diary = false                  # publish her nightly diary as a 动态
+
+[platforms.wechat]                  # see docs/platforms/wechat.md
+enabled = false
+mode = "official_account"           # official_account | onebot_bridge
+token_env = "WECHAT_MP_TOKEN"
+app_id_env = "WECHAT_MP_APP_ID"
+aes_key_env = "WECHAT_MP_AES_KEY"
+# bridge mode: url = "ws://127.0.0.1:3002", groups = [...]
+
+[platforms.douyin]                  # experimental, see docs/platforms/douyin.md
+enabled = false
+live_rooms = []
+headless = false

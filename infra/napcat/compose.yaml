@@ -1,0 +1,20 @@
+# NapCat: logs a QQ account in (Linux QQ inside the container) and exposes it as OneBot v11.
+# Managed by `uv run anima napcat init|up|down|logs|qr`. Ports bind to localhost only.
+services:
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: anima-napcat
+    restart: unless-stopped
+    mac_address: "02:42:ac:11:00:2a"   # a stable device identity means fewer re-logins
+    environment:
+      NAPCAT_UID: ${NAPCAT_UID:-1000}
+      NAPCAT_GID: ${NAPCAT_GID:-1000}
+      WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:?run `uv run anima napcat init` first}
+      MODE: ws
+    ports:
+      - "127.0.0.1:6099:6099"   # WebUI: scan the login QR code here
+      - "127.0.0.1:3001:3001"   # OneBot v11 forward WebSocket, the bot connects here
+    volumes:
+      - ./runtime/qq:/app/.config/QQ
+      - ./runtime/config:/app/napcat/config
+      - ./runtime/plugins:/app/napcat/plugins
