@@ -182,32 +182,22 @@ source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "anthropic" },
+    { name = "bilibili-api-python" },
+    { name = "cryptography" },
+    { name = "edge-tts" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "loguru" },
     { name = "openai" },
+    { name = "playwright" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "qrcode" },
     { name = "rich" },
     { name = "typer" },
     { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
-]
-
-[package.optional-dependencies]
-bilibili = [
-    { name = "bilibili-api-python" },
-    { name = "qrcode" },
-]
-douyin = [
-    { name = "playwright" },
-]
-voice = [
-    { name = "edge-tts" },
-]
-wechat = [
-    { name = "cryptography" },
     { name = "wechatpy" },
 ]
 
@@ -222,25 +212,24 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "anthropic", specifier = ">=1.0" },
-    { name = "bilibili-api-python", marker = "extra == 'bilibili'", specifier = ">=17" },
-    { name = "cryptography", marker = "extra == 'wechat'", specifier = ">=42" },
-    { name = "edge-tts", marker = "extra == 'voice'", specifier = ">=6.1" },
+    { name = "bilibili-api-python", specifier = ">=17" },
+    { name = "cryptography", specifier = ">=42" },
+    { name = "edge-tts", specifier = ">=6.1" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "openai", specifier = ">=1.50" },
-    { name = "playwright", marker = "extra == 'douyin'", specifier = ">=1.45" },
+    { name = "playwright", specifier = ">=1.45" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "qrcode", marker = "extra == 'bilibili'", specifier = ">=7.4" },
+    { name = "qrcode", specifier = ">=7.4" },
     { name = "rich", specifier = ">=13" },
     { name = "typer", specifier = ">=0.12" },
     { name = "tzdata" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "websockets", specifier = ">=13" },
-    { name = "wechatpy", marker = "extra == 'wechat'", specifier = ">=1.8" },
+    { name = "wechatpy", specifier = ">=1.8" },
 ]
-provides-extras = ["bilibili", "douyin", "wechat", "voice"]
 
 [package.metadata.requires-dev]
 dev = [

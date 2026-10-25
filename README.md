@@ -56,6 +56,9 @@ cp .env.example .env          # then put your ANTHROPIC_API_KEY in it
 uv run anima play             # http://127.0.0.1:8765
 ```
 
+Run `uv run anima …` inside this folder, or install a shortcut once with
+`scripts/install-shortcut.sh` and use `anima …` from anywhere.
+
 Without a key she runs in demo mode (canned lines), which is still enough to explore the UI.
 Her brain defaults to Claude Opus 5.5 at low effort for chat, with prompt caching and the
 server-side refusal fallback. Any OpenAI-compatible model (DeepSeek, Qwen, LM Studio) also

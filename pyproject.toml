@@ -18,13 +18,14 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "python-dotenv>=1.0",
     "tzdata",
+    # platforms and voice
+    "bilibili-api-python>=17",
+    "qrcode>=7.4",
+    "playwright>=1.45",
+    "wechatpy>=1.8",
+    "cryptography>=42",
+    "edge-tts>=6.1",
 ]
-
-[project.optional-dependencies]
-bilibili = ["bilibili-api-python>=17", "qrcode>=7.4"]
-douyin = ["playwright>=1.45"]
-wechat = ["wechatpy>=1.8", "cryptography>=42"]
-voice = ["edge-tts>=6.1"]
 
 [project.scripts]
 anima = "anima.cli:app"

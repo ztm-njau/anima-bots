@@ -5,7 +5,7 @@ Anima is a Python engine for human-like social bots; each bot is a folder under 
 
 ## Commands
 
-- Python is uv-managed 3.12. Never use the system `python3` (3.9). `uv sync --all-extras` installs everything.
+- Python is uv-managed 3.12. Never use the system `python3` (3.9). `uv sync` installs everything. `anima` in ~/.local/bin is a wrapper (scripts/install-shortcut.sh) so the CLI works from any folder.
 - Tests: `uv run pytest` (fast, offline: `FakeLLM` + a recorder adapter, pacing off). Lint: `uv run ruff check src tests`.
 - Try changes: `uv run anima play` (web playground on :8765, `--demo` without an API key, `--fast` to skip pacing),
   `uv run anima chat` (terminal), `uv run anima doctor`.
