@@ -15,6 +15,7 @@ from anima.core.brain import Brain
 from anima.core.life import Life
 from anima.core.memory import Memory
 from anima.llm import make_provider
+from anima.llm.registry import ProviderStore
 
 WEB_PLATFORMS = {"playground", "wechat"}
 
@@ -42,6 +43,7 @@ class Runtime:
         self.brain: Brain
         self.life: Life
         self.memory: Memory
+        self.store: ProviderStore
         self._stop = asyncio.Event()
 
     def enabled_platforms(self) -> list[str]:
@@ -91,7 +93,8 @@ class Runtime:
         if not self.console:
             setup_logging(self.bot, self.verbose)
         self.memory = await Memory(self.bot.data_dir / "memory.db").open()
-        self.brain = Brain(self.bot, self.memory, make_provider(self.bot, force_fake=self.demo))
+        self.store = ProviderStore()
+        self.brain = Brain(self.bot, self.memory, make_provider(self.bot, force_fake=self.demo, store=self.store))
         if self.fast:
             self.brain.humanizer.scale = 0.0
         await self.brain.start()
@@ -99,6 +102,14 @@ class Runtime:
         self.adapters = self.build_adapters()
         for adapter in self.adapters.values():
             self.brain.attach(adapter)
+
+    def rebuild_llm(self) -> None:
+        """Swap the brain's model in place after the provider panel changes something."""
+        self.store.load()
+        self.brain.llm = make_provider(self.bot, force_fake=self.demo, store=self.store)
+        llm = self.brain.llm
+        self.brain.trace.emit("llm", provider=llm.label, model=llm.model, note=getattr(llm, "note", ""))
+        logger.info("Brain now runs on {} · {}", llm.label, llm.model)
 
     async def run(self) -> None:
         await self.setup()

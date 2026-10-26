@@ -46,9 +46,16 @@ class AnthropicProvider(LLMProvider):
         web_search: bool = True,
         fallbacks: bool = True,
         vision: bool = True,
+        base_url: str | None = None,
+        label: str = "Claude",
     ):
         super().__init__(model, side_model, max_tokens)
-        self.client = anthropic.AsyncAnthropic(api_key=api_key) if api_key else anthropic.AsyncAnthropic()
+        from anima.llm.catalog import PRESET_BY_ID
+
+        options: dict[str, Any] = {"base_url": base_url} if base_url else {}
+        self.client = anthropic.AsyncAnthropic(api_key=api_key, **options) if api_key else anthropic.AsyncAnthropic(**options)
+        self.label = label
+        self.prices = dict(PRESET_BY_ID["anthropic"].prices)
         self.effort = effort
         self.side_effort = side_effort
         self.web_search = web_search
@@ -136,7 +143,7 @@ class AnthropicProvider(LLMProvider):
 
             if resp.stop_reason == "refusal":
                 result.refused = True
-                return result
+                return self.priced(result)
             if resp.stop_reason == "pause_turn":  # a server tool (web search) wants to keep going
                 messages.append({"role": "assistant", "content": resp.content})
                 continue
@@ -162,8 +169,8 @@ class AnthropicProvider(LLMProvider):
                 continue
 
             result.text = "".join(b.text for b in resp.content if b.type == "text")
-            return result
-        return result
+            return self.priced(result)
+        return self.priced(result)
 
     async def complete(self, system: str, prompt: str, *, schema: dict | None = None, max_tokens: int = 3000) -> LLMResult:
         output_config: dict[str, Any] = {"effort": self.side_effort}
@@ -177,10 +184,18 @@ class AnthropicProvider(LLMProvider):
             output_config=output_config,
         )
         text = "".join(b.text for b in resp.content if b.type == "text")
-        return LLMResult(
+        return self.priced(LLMResult(
             text=text,
             model=getattr(resp, "model", self.side_model),
             usage=_usage(resp),
             refused=resp.stop_reason == "refusal",
             stop_reason=resp.stop_reason or "",
-        )
+        ))
+
+    async def list_models(self) -> list[str]:
+        try:
+            return sorted([m.id async for m in self.client.models.list()])
+        except anthropic.APIStatusError as exc:
+            raise LLMError(f"Claude: could not list models ({exc.status_code})") from exc
+        except anthropic.APIConnectionError as exc:
+            raise LLMError("Claude: cannot reach the API") from exc

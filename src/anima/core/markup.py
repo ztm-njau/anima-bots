@@ -17,7 +17,7 @@ import re
 from anima.core.events import Bubble, Reply, Segment
 from anima.core.stickers import StickerBook
 
-_VOICE = re.compile(r"\[voice\](.+?)\[/voice\]", re.S | re.I)
+_VOICE = re.compile(r"\[voice\](.+?)\[/?voice\]", re.S | re.I)  # tolerate a missing slash
 _MOOD = re.compile(r"\[mood:\s*([a-zA-Z_]+)\s*\]", re.I)
 _FLAG = re.compile(r"\[(poke|reply|silent)\]", re.I)
 _INLINE = re.compile(r"\[(sticker|meme):\s*([^\]\s]{1,24})\s*\]", re.I)
@@ -27,6 +27,7 @@ _MD_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)、])\s+")
 _MD_HEADER = re.compile(r"^\s*#{1,6}\s+")
 _MD_EMPH = re.compile(r"(\*\*|__|\*|`)")
 _THINK = re.compile(r"<think>.*?</think>", re.S)
+_NARRATION = re.compile(r"^[（(【][^）)】]{9,}[）)】]$")  # "（突然想起了一部老电影……）"
 
 
 def clean(raw: str) -> str:
@@ -38,7 +39,7 @@ def clean(raw: str) -> str:
         line = _MD_EMPH.sub("", line)
         line = _SPEAKER_PREFIX.sub("", line)
         line = line.strip().strip('"“”')
-        if line:
+        if line and not _NARRATION.match(line):
             lines.append(line)
     return "\n".join(lines)
 

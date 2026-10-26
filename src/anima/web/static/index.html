@@ -100,7 +100,8 @@ textarea:focus { border-color: var(--cola); }
 .controls { display: grid; gap: 8px; justify-items: end; }
 .controls .r { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 input[type=range] { width: 170px; accent-color: var(--cola); }
-.badge { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink2); }
+.badge { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink2); text-decoration: none; }
+a.badge:hover { border-color: var(--cola); color: var(--ink); }
 .badge.warn { color: #b25e00; border-color: #f1c58a; background: #fff4e0; }
 body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4a1a; }
 
@@ -177,7 +178,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
     <div class="card top">
       <div class="clock" id="clock">--:--<small id="date">北京时间</small></div>
       <div class="controls">
-        <div class="r"><span class="badge" id="model">…</span><span class="badge" id="cost">$0</span></div>
+        <div class="r"><a class="badge" id="model" href="/providers" title="模型提供商">…</a><span class="badge" id="cost">0</span></div>
         <div class="r">
           <label style="font-size:12.5px;color:var(--ink2)">时间旅行 <b id="offLabel">±0h</b></label>
           <input type="range" id="offset" min="-12" max="24" step="0.5" value="0">
@@ -274,9 +275,9 @@ function applyState(st) {
   $("orb").style.background = `radial-gradient(circle at 35% 30%, hsl(${hue} ${sat}% 78%), hsl(${hue} ${sat}% 52%) 60%, hsl(${(hue + 25) % 360} ${sat}% 34%))`;
   $("orb").style.boxShadow = `0 0 ${20 + a * 40}px hsl(${hue} ${sat}% 60% / .55)`;
   $("orb").style.animationDuration = (4.2 - a * 2.6).toFixed(2) + "s";
-  $("model").textContent = st.llm.demo ? "演示模式 · 还没有 API key" : `${st.llm.provider} · ${st.llm.model}`;
+  $("model").textContent = st.llm.demo ? `⚙︎ 演示模式 · ${st.llm.note || "还没接上模型"} → 去接入` : `⚙︎ ${st.llm.provider} · ${st.llm.model}`;
   $("model").classList.toggle("warn", st.llm.demo);
-  $("cost").textContent = `本次运行 $${st.cost.toFixed(4)}`;
+  $("cost").textContent = `本次运行 ${st.cost}`;
   $("offset").value = st.offset_hours; $("offLabel").textContent = (st.offset_hours > 0 ? "+" : st.offset_hours < 0 ? "" : "±") + st.offset_hours + "h";
   $("fast").textContent = st.fast ? "🐢 真人节奏" : "⏩ 快进";
   $("plan").className = st.plan ? "" : "empty"; $("plan").textContent = st.plan || "还没生成（她醒来后会自己安排）";
@@ -341,7 +342,7 @@ function trace(t) {
   else if (k === "thinking") line = `<details><summary>🫧 正在组织语言… 看她此刻的背景</summary><pre>${esc(t.dynamic)}</pre></details>`;
   else if (k === "tool") { line = `🔧 ${t.name} ${esc(JSON.stringify(t.input))}`; cls = "tool"; }
   else if (k === "tool_result") { line = `↳ ${esc(String(t.output).slice(0, 220))}`; cls = "tool"; }
-  else if (k === "reply") { line = `💬 ${t.bubbles.length} 条消息${t.moods?.length ? " · 情绪 " + t.moods.join(",") : ""}${t.tools?.length ? " · 用了 " + t.tools.join(",") : ""} · ${t.model} · $${t.cost}`; cls = "reply"; }
+  else if (k === "reply") { line = `💬 ${t.bubbles.length} 条消息${t.moods?.length ? " · 情绪 " + t.moods.join(",") : ""}${t.tools?.length ? " · 用了 " + t.tools.join(",") : ""} · ${t.provider || ""} ${t.model}${t.cost ? ` · ${t.currency === "USD" ? "$" : "¥"}${t.cost}` : ""}`; cls = "reply"; }
   else if (k === "guard") line = `🛡️ 拦下了一句（${t.category}）`;
   else if (k === "error") { line = `⚠️ ${esc(t.error)}`; cls = "error"; }
   else if (k === "reflect") line = `🧠 整理记忆：读了 ${t.messages} 条，记住 ${t.saved} 件事`;

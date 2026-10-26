@@ -10,22 +10,22 @@ aliases = ["{{name}}"]
 timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever this Mac is
 
 [llm]
-provider = "anthropic"
-model = "claude-opus-5-5"
-effort = "low"                      # chat replies; raise to "medium" for deeper conversations
-side_model = "claude-opus-5-5"      # diary, daily plan, memory reflection ("claude-haiku-5-5" costs ~1/40)
-side_effort = "low"
+# Connect and switch providers in the playground's 模型提供商 panel (http://127.0.0.1:8765/providers);
+# what you pick there overrides this section. Any id from the panel works here too.
+provider = "deepseek"               # DeepSeek's own API; the key comes from the panel or DEEPSEEK_API_KEY
+model = "deepseek-flash"            # DeepSeek V4.1 Flash: fast, cheap, sees images
+side_model = "deepseek-flash"       # diary, daily plan, memory reflection
+temperature = 1.3                   # DeepSeek's recommendation for open conversation
+# backup = "ollama:qwen2.5:1.5b"    # tried when the main model errors
 max_tokens = 4000
-web_search = true                   # lets her look up fresh facts, at most 2 searches per reply
-fallbacks = true                    # server-side refusal fallback, so a declined request still gets an answer
-vision = true                       # she can see images people send
+vision = true                       # she can see images people send (if the model can)
 
-# A cheaper or local brain instead (any OpenAI-compatible endpoint):
-# provider = "openai_compat"
-# base_url = "https://api.deepseek.com"   # or http://localhost:1234/v1 for LM Studio
-# model = "deepseek-chat"
-# api_key_env = "DEEPSEEK_API_KEY"
-# vision = false
+# Claude instead: provider = "anthropic", model = "claude-opus-5-5" (prompt caching, web search,
+# refusal fallback; these three Claude-only switches are ignored by other providers)
+effort = "low"
+side_effort = "low"
+web_search = true
+fallbacks = true
 
 [behavior]
 group_chattiness = 0.08             # base chance to chime in unprompted in a group

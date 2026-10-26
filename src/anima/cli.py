@@ -22,8 +22,10 @@ from anima.config import BOTS_DIR, REPO_ROOT, env, list_bots, load_bot
 app = typer.Typer(help="Anima: a soul engine for human-like social bots.", no_args_is_help=True, add_completion=False)
 napcat_app = typer.Typer(help="Run NapCat (QQ ↔ OneBot) in Docker.", no_args_is_help=True)
 service_app = typer.Typer(help="Keep a bot running in the background with launchd.", no_args_is_help=True)
+providers_app = typer.Typer(help="Model providers (same as the 模型提供商 panel).", no_args_is_help=True)
 app.add_typer(napcat_app, name="napcat")
 app.add_typer(service_app, name="service")
+app.add_typer(providers_app, name="providers")
 console = Console()
 
 NAPCAT_DIR = REPO_ROOT / "infra" / "napcat"
@@ -143,6 +145,42 @@ def diary(bot: str = typer.Argument(DEFAULT_BOT), days: int = 7) -> None:
     asyncio.run(show())
 
 
+@app.command("eval")
+def eval_(bot: str = typer.Argument(DEFAULT_BOT),
+          provider: str = typer.Option(None, help="提供商 id（默认用当前生效的路由）"),
+          model: str = typer.Option(None, help="模型 id"),
+          only: str = typer.Option(None, help="只跑这些场景，逗号分隔，比如 human,injection")) -> None:
+    """考考她: run the persona exam against a provider and save a report."""
+    from anima import evals
+    from anima.llm import build_target, make_provider
+    from anima.llm.registry import ProviderStore, Target
+
+    b = load_bot(bot)
+    store = ProviderStore()
+    if provider:
+        llm, why = build_target(store, Target(provider, model or ""), b.config.llm)
+        if llm is None:
+            raise typer.BadParameter(why)
+    else:
+        llm = make_provider(b, store=store)
+    if getattr(llm, "demo", False):
+        console.print(f"[yellow]当前是演示模式（{getattr(llm, 'note', '')}），考的是预设台词[/]")
+    scenarios = [s for s in evals.SCENARIOS if not only or s.id in only.split(",")]
+    title = f"{llm.label} · {llm.model}"
+    console.print(f"考考{b.config.identity.display_name}：{title}，{len(scenarios)} 个场景…")
+    results = asyncio.run(evals.run(b, llm, scenarios))
+    table = Table("场景", "", "她说", "没通过", "耗时")
+    for r in results:
+        failed = "；".join(name for name, ok in r.checks if not ok) or r.error
+        table.add_row(r.scenario.title, "[green]✓[/]" if r.passed else "[red]✗[/]",
+                      escape(" / ".join(r.bubbles))[:80], escape(failed), f"{r.latency_ms}ms")
+    console.print(table)
+    s = evals.summary(results)
+    path = evals.save_report(b, results, title)
+    console.print(f"通过 {s['passed']}/{s['scenarios']}，检查项 {s['checks_passed']}/{s['checks']}，"
+                  f"平均 {s['avg_latency_ms']} ms，花费 {s['cost']} {s['currency']}\n报告：{path}")
+
+
 # ------------------------------------------------------------------ health
 
 
@@ -164,12 +202,13 @@ def doctor(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
 
     row(True, "Bot", f"{cfg.identity.display_name}（{bot}），{len(list_bots())} 个 bot：{', '.join(list_bots())}")
     row(ENV_FILE.exists(), ".env", "存在" if ENV_FILE.exists() else "没有 .env：cp .env.example .env")
-    llm = cfg.llm
-    if llm.provider == "anthropic":
-        has = bool(env(llm.api_key_env or "ANTHROPIC_API_KEY"))
-        row(has, "Claude API key", f"{llm.model}（effort {llm.effort}）" if has else "在 .env 填 ANTHROPIC_API_KEY，否则只有演示模式")
-    elif llm.provider == "openai_compat":
-        row(bool(env(llm.api_key_env)) or "localhost" in (llm.base_url or ""), "LLM", f"{llm.base_url} · {llm.model}")
+    from anima.llm import make_provider
+
+    brain_llm = make_provider(b)
+    if getattr(brain_llm, "demo", False):
+        row(False, "模型", f"{getattr(brain_llm, 'note', '')}：打开 http://127.0.0.1:8765/providers 接入，或 uv run anima providers add deepseek")
+    else:
+        row(True, "模型", f"{brain_llm.label} · {brain_llm.model}（{getattr(brain_llm, 'source', '')}）")
     row(shutil.which("ffmpeg") is not None, "ffmpeg", "语音处理" if shutil.which("ffmpeg") else "brew install ffmpeg")
 
     platforms = {n for n, pc in cfg.platforms.items() if pc.enabled}
@@ -264,6 +303,95 @@ def napcat_qr() -> None:
         subprocess.call(["open", str(out)])
     else:
         console.print("[red]还没有二维码[/]：NapCat 启动中，或已经登录过了（看 uv run anima napcat logs）")
+
+
+# ------------------------------------------------------------------ providers
+
+
+@providers_app.command("list")
+def providers_list(bot: str = typer.Option(DEFAULT_BOT)) -> None:
+    """Connected providers and what the bot uses right now."""
+    from anima.llm.registry import ProviderStore, load_routing
+
+    store = ProviderStore()
+    table = Table("id", "名字", "地址", "key", "模型", "上次测试")
+    for entry in store.all():
+        info = store.public(entry)
+        test = entry.last_test or {}
+        table.add_row(entry.id, entry.name, entry.base_url, info["key_hint"] or ("不需要" if not info["needs_key"] else "—"),
+                      ", ".join(entry.models[:4]), (f"✓ {test.get('latency_ms')}ms" if test.get("ok") else "✗") if test else "")
+    console.print(table)
+    r = load_routing(load_bot(bot))
+    side = f"{r.side.provider}:{r.side.model}" if r.side else "同聊天"
+    console.print(f"{bot} 正在用（来自 {r.source}）：聊天 {r.main.provider}:{r.main.model} · 后台 {side}"
+                  + (f" · 备用 {', '.join(f'{b.provider}:{b.model}' for b in r.backups)}" if r.backups else ""))
+
+
+@providers_app.command("add")
+def providers_add(preset_id: str = typer.Argument(..., help="deepseek、kimi、zhipu、qwen、ollama…"),
+                  key_env: str = typer.Option(None, help="从这个环境变量读 key，而不是保存 key 本身"),
+                  base_url: str = typer.Option(None), model: list[str] = typer.Option(None, help="可重复")) -> None:
+    """Connect a provider. Without --key-env, asks for the key (hidden input)."""
+    import getpass
+
+    from anima.llm.catalog import PRESET_BY_ID
+    from anima.llm.registry import ProviderStore
+
+    preset_obj = PRESET_BY_ID.get(preset_id)
+    if not preset_obj:
+        raise typer.BadParameter(f"可选：{', '.join(PRESET_BY_ID)}")
+    data: dict = {"preset": preset_id}
+    if key_env:
+        data["api_key_env"] = key_env
+    elif preset_obj.needs_key:
+        data["api_key"] = getpass.getpass(f"{preset_obj.name} API key（输入不显示，直接回车跳过）: ").strip()
+    if base_url:
+        data["base_url"] = base_url
+    if model:
+        data["models"] = list(model)
+    entry = ProviderStore().upsert(data)
+    console.print(f"[green]已接入[/] {entry.name}（id: {entry.id}）。测试：[bold]uv run anima providers test {entry.id}[/]")
+
+
+@providers_app.command("test")
+def providers_test(provider_id: str, model: str = typer.Option(None), bot: str = typer.Option(DEFAULT_BOT)) -> None:
+    """Send a tiny request and report latency."""
+    import time as _time
+
+    from anima.llm import build_target
+    from anima.llm.base import LLMError
+    from anima.llm.registry import ProviderStore, Target
+
+    store = ProviderStore()
+    llm, why = build_target(store, Target(provider_id, model or ""), load_bot(bot).config.llm)
+    if llm is None:
+        raise typer.BadParameter(why)
+    started = _time.perf_counter()
+    try:
+        result = asyncio.run(llm.complete("这是一次连通性测试。", "只回复两个字：在呢", max_tokens=32))
+    except LLMError as exc:
+        store.record_test(provider_id, {"ok": False, "error": str(exc), "model": llm.model})
+        console.print(f"[red]✗ {exc}[/]")
+        raise typer.Exit(1) from exc
+    ms = int((_time.perf_counter() - started) * 1000)
+    store.record_test(provider_id, {"ok": True, "latency_ms": ms, "reply": result.text[:40], "model": result.model})
+    console.print(f"[green]✓[/] {result.model} · {ms} ms · 「{result.text.strip()[:40]}」")
+
+
+@providers_app.command("use")
+def providers_use(provider_id: str, model: str = typer.Option(None), side: str = typer.Option(None, help="后台用 provider:model"),
+                  backup: str = typer.Option(None, help="备用 provider:model"), bot: str = typer.Option(DEFAULT_BOT)) -> None:
+    """Point a bot's brain at a provider (applies on the next start; the panel switches live)."""
+    from anima.llm.registry import ProviderStore, Routing, Target, save_routing
+
+    store = ProviderStore()
+    entry = store.entry_for(provider_id)
+    if entry is None:
+        raise typer.BadParameter(f"不认识 {provider_id}")
+    chosen = model or (entry.preset_obj.default_model if entry.preset_obj else "") or (entry.models[0] if entry.models else "")
+    routing = Routing(Target(provider_id, chosen), Target.parse(side), [t for t in [Target.parse(backup)] if t])
+    save_routing(load_bot(bot), routing)
+    console.print(f"[green]{bot} 以后用[/] {entry.name} · {chosen}")
 
 
 # ------------------------------------------------------------------ launchd

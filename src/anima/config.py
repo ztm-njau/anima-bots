@@ -37,16 +37,21 @@ class IdentityConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    provider: str = "anthropic"  # anthropic | openai_compat | fake
-    model: str = "claude-opus-5-5"
-    effort: str = "low"
+    # A provider id from the panel or the preset catalog ("deepseek", "anthropic", "kimi", "ollama", ...),
+    # "openai_compat" with base_url/api_key_env, or "fake". The panel's routing overrides this.
+    provider: str = "deepseek"
+    model: str = "deepseek-flash"
     side_model: str | None = None  # memory reflection, diary, daily plan; defaults to `model`
+    backup: str | None = None  # "provider:model" tried when the main model errors
+    temperature: float | None = None
+    params: dict[str, Any] = {}  # extra request fields for OpenAI-compatible providers
+    effort: str = "low"  # Claude only
     side_effort: str = "low"
     max_tokens: int = 4000
-    web_search: bool = True
-    fallbacks: bool = True  # server-side refusal fallback (Anthropic)
+    web_search: bool = True  # Claude only
+    fallbacks: bool = True  # Claude only: server-side refusal fallback
     vision: bool = True
-    base_url: str | None = None  # openai_compat only
+    base_url: str | None = None  # provider = "openai_compat" only
     api_key_env: str | None = None
 
 

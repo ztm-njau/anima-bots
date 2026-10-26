@@ -31,7 +31,6 @@ from anima.core.safety import Guard, RateLimiter
 from anima.core.schedule import LifeState, Schedule
 from anima.core.stickers import StickerBook
 from anima.core.trace import TraceBus
-from anima.llm import estimate_cost
 from anima.llm.base import LLMError, LLMProvider, LLMResult, Usage
 from anima.skills.base import SkillContext, run_skill, select
 
@@ -85,7 +84,7 @@ class Brain:
         self.adapters: dict[str, Adapter] = {}
         self.sessions: dict[str, ChatSession] = {}
         self.usage = Usage()
-        self.cost = 0.0
+        self.costs: dict[str, float] = {}  # currency -> spent this run
         self.bilibili_credential = None  # set by the Bilibili adapter, used by skills
         self._tasks: set[asyncio.Task] = set()
 
@@ -126,11 +125,15 @@ class Brain:
         adapter = self.adapters.get(chat.platform)
         return 0.0 if adapter and adapter.instant else 1.0
 
-    def account(self, result: LLMResult) -> tuple[float, float]:
-        cost = estimate_cost(result.model, result.usage)
+    def account(self, result: LLMResult) -> None:
         self.usage.add(result.usage)
-        self.cost += cost
-        return cost, self.cost
+        if result.currency:
+            self.costs[result.currency] = self.costs.get(result.currency, 0.0) + result.cost
+
+    def cost_text(self) -> str:
+        symbols = {"CNY": "¥", "USD": "$"}
+        parts = [f"{symbols.get(cur, cur + ' ')}{amount:.4f}" for cur, amount in self.costs.items() if amount]
+        return " · ".join(parts) or "0"
 
     # ------------------------------------------------------------ perceive
 
@@ -291,7 +294,7 @@ class Brain:
             logger.error("LLM failed for {}: {}", chat.key, exc)
             self.trace.emit("error", chat=chat.key, error=str(exc))
             return Reply(silent=True)
-        cost, total = self.account(result)
+        self.account(result)
 
         raw = self.guard.deflect(None) if result.refused else result.text
         reply = parse_reply(raw, self.stickers, self.cfg.behavior.max_bubbles)
@@ -315,7 +318,8 @@ class Brain:
         self.trace.emit(
             "reply", chat=chat.key, raw=result.text, bubbles=[b.source for b in reply.bubbles],
             moods=reply.moods, tools=[c["name"] for c in result.tool_calls], refused=result.refused,
-            model=result.model, usage=result.usage.__dict__, cost=round(cost, 5), total_cost=round(total, 4),
+            model=result.model, provider=result.provider, usage=result.usage.__dict__,
+            cost=round(result.cost, 5), currency=result.currency, total=self.cost_text(),
         )
         return reply
 

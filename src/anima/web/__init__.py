@@ -6,8 +6,9 @@ import asyncio
 import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from anima.adapters.playground import GROUP, PRIVATE
@@ -18,6 +19,16 @@ if TYPE_CHECKING:
     from anima.runtime import Runtime
 
 STATIC = Path(__file__).parent / "static"
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def is_local(host_header: str | None, origin: str | None) -> bool:
+    """Only this machine's browser may drive the bot. Blocks other websites (CSRF, cross-site
+    WebSockets) and DNS-rebinding tricks, since API keys and chats live behind these routes."""
+    host = (host_header or "").rsplit(":", 1)[0].strip("[]")
+    if host not in LOCAL_HOSTS:
+        return False
+    return not origin or urlparse(origin).hostname in LOCAL_HOSTS
 
 
 async def snapshot(runtime: Runtime) -> dict[str, Any]:
@@ -44,8 +55,9 @@ async def snapshot(runtime: Runtime) -> dict[str, Any]:
                 "messages": you.msg_count, "facts": [f.content for f in you_facts]} if you else None,
         "self_facts": [f.content for f in await memory.facts("self", 10)],
         "treasures": await memory.treasures(8),
-        "llm": {"provider": brain.llm.name, "model": brain.llm.model, "demo": brain.llm.name == "fake"},
-        "cost": round(brain.cost, 4),
+        "llm": {"provider": brain.llm.label, "model": brain.llm.model, "demo": brain.llm.name == "fake",
+                "note": getattr(brain.llm, "note", "")},
+        "cost": brain.cost_text(),
         "usage": brain.usage.__dict__,
         "fast": brain.humanizer.scale == 0,
         "name": brain.cfg.identity.display_name,
@@ -85,6 +97,14 @@ def create_app(runtime: Runtime) -> FastAPI:
     brain = runtime.brain
     playground = runtime.adapters.get("playground")
 
+    @app.middleware("http")
+    async def local_only(request: Request, call_next):
+        path = request.url.path
+        guarded = path.startswith("/api/") or path in ("/", "/providers") or path.startswith("/voice/")
+        if guarded and not is_local(request.headers.get("host"), request.headers.get("origin")):
+            return JSONResponse({"error": "only available from this computer"}, status_code=403)
+        return await call_next(request)
+
     @app.get("/health")
     async def health() -> JSONResponse:
         return JSONResponse({"ok": True, "bot": runtime.bot.key, "platforms": sorted(brain.adapters)})
@@ -96,9 +116,17 @@ def create_app(runtime: Runtime) -> FastAPI:
     if playground is None:
         return app
 
+    from anima.web.providers import provider_router
+
+    app.include_router(provider_router(runtime))
+
     @app.get("/")
     async def index() -> HTMLResponse:
         return HTMLResponse((STATIC / "index.html").read_text(encoding="utf-8"))
+
+    @app.get("/providers")
+    async def providers_page() -> HTMLResponse:
+        return HTMLResponse((STATIC / "providers.html").read_text(encoding="utf-8"))
 
     @app.get("/voice/{name}")
     async def voice(name: str):
@@ -115,6 +143,9 @@ def create_app(runtime: Runtime) -> FastAPI:
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
+        if not is_local(ws.headers.get("host"), ws.headers.get("origin")):
+            await ws.close(code=1008)
+            return
         await ws.accept()
         playground.clients.add(ws)
         queue = brain.trace.subscribe()

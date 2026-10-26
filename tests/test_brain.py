@@ -139,3 +139,14 @@ async def test_daily_plan_and_diary(make_brain):
     diary = await life.write_diary(brain.clock.today())
     assert diary == "今天认识了新朋友，很开心。"
     assert json.dumps(await brain.memory.journal_list("diary"), ensure_ascii=False).count("新朋友") == 1
+
+
+async def test_demo_mode_writes_no_diary_and_starts_no_chats(bot, memory):
+    from anima.core.brain import Brain
+    from anima.core.life import Life
+    from anima.llm.fake import FakeLLM
+
+    brain = Brain(bot, memory, FakeLLM())  # no responder: the canned demo brain
+    life = Life(brain)
+    await life.tick()
+    assert await memory.journal_list("plan") == [] and await memory.journal_list("diary") == []

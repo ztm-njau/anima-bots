@@ -64,3 +64,8 @@ def test_sticker_rendering_per_platform():
     assert BOOK.render("laugh", "qq") == ("face", "182")
     assert BOOK.render("laugh", "bilibili") == ("text", "[笑哭]")
     assert BOOK.render("doge", "douyin") == ("text", "🐶")
+
+
+def test_stage_directions_are_dropped_but_short_emotes_kept():
+    reply = parse_reply("嗨~我是可乐\n（突然想到了一部老电影，准备去查查海报）\n（捂脸）\n[voice]晚安呀[voice]", BOOK)
+    assert [b.text or b.voice for b in reply.bubbles] == ["嗨~我是可乐", "（捂脸）", "晚安呀"]

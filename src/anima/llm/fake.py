@@ -29,6 +29,8 @@ class FakeLLM(LLMProvider):
 
     def __init__(self, responder: Responder | None = None, side: Callable[[str, str, dict | None], Any] | None = None):
         super().__init__("fake-model")
+        self.label = "演示模式"
+        self.demo = responder is None and side is None  # canned lines, no real model behind it
         self.responder = responder or demo_responder
         self.side = side
         self.calls: list[dict[str, Any]] = []

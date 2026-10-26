@@ -46,6 +46,9 @@ class LLMResult:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     refused: bool = False
     stop_reason: str = ""
+    cost: float = 0.0
+    currency: str = ""
+    provider: str = ""  # which configured provider answered (matters when a fallback kicks in)
 
 
 ToolExecutor = Callable[[str, dict[str, Any]], Awaitable[str]]
@@ -77,10 +80,22 @@ class LLMProvider(ABC):
         self.model = model
         self.side_model = side_model or model
         self.max_tokens = max_tokens
+        self.label = self.name  # human name of the configured provider, e.g. "DeepSeek"
+        self.prices: dict[str, Any] = {}  # model id -> catalog.Price
 
     @property
     def supports_vision(self) -> bool:
         return False
+
+    def priced(self, result: LLMResult) -> LLMResult:
+        """Fill in cost/currency from this provider's price table."""
+        price = self.prices.get(result.model) or self.prices.get(self.model) or self.prices.get(self.side_model)
+        result.provider = result.provider or self.label
+        if price is not None:
+            u = result.usage
+            result.cost = price.cost(u.input_tokens, u.cache_read, u.output_tokens, u.cache_write)
+            result.currency = price.currency
+        return result
 
     @abstractmethod
     async def converse(

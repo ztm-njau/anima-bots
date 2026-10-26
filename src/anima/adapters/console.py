@@ -101,7 +101,7 @@ class ConsoleAdapter(Adapter):
         elif cmd == "/state":
             life = brain.life()
             plan = await brain.memory.journal_get(brain.clock.today(), "plan")
-            self.console.print(f"[dim]{brain.clock.describe()} · {life.activity} · {brain.mood.describe(life.energy)}\n今天：{plan or '还没安排'}\n花费：${brain.cost:.4f}[/]")
+            self.console.print(f"[dim]{brain.clock.describe()} · {life.activity} · {brain.mood.describe(life.energy)}\n今天：{plan or '还没安排'}\n花费：{brain.cost_text()} · 模型：{brain.llm.label} {brain.llm.model}[/]")
         elif cmd == "/plan":
             self.console.print(f"[dim]{await runtime.life.plan_day(brain.clock.today())}[/]")
         elif cmd == "/diary":

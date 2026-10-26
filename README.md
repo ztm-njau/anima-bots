@@ -52,20 +52,22 @@ Step-by-step guides: [QQ](docs/platforms/qq.md) · [Bilibili](docs/platforms/bil
 ## Quick start
 
 ```bash
-cp .env.example .env          # then put your ANTHROPIC_API_KEY in it
-uv run anima play             # http://127.0.0.1:8765
+uv run anima play             # http://127.0.0.1:8765, then 模型提供商 to connect DeepSeek
 ```
 
 Run `uv run anima …` inside this folder, or install a shortcut once with
 `scripts/install-shortcut.sh` and use `anima …` from anywhere.
 
-Without a key she runs in demo mode (canned lines), which is still enough to explore the UI.
-Her brain defaults to Claude Opus 5.5 at low effort for chat, with prompt caching and the
-server-side refusal fallback. Any OpenAI-compatible model (DeepSeek, Qwen, LM Studio) also
-works: see `[llm]` in `bots/claudette/bot.toml`.
+Her brain defaults to **DeepSeek** (`deepseek-flash`). Connect it, or any of 17 providers
+(Kimi, GLM, Qwen, Doubao, MiniMax, Claude, OpenRouter, local Ollama / LM Studio…), in the
+**模型提供商** panel at http://127.0.0.1:8765/providers: paste a key, test it, hear how she
+sounds on that model, give her a 12-scenario exam, and switch live. A `DEEPSEEK_API_KEY` in `.env`
+works too. Without any key she runs in demo mode (canned lines). See [docs/providers.md](docs/providers.md).
 
 ```bash
 uv run anima doctor           # what's ready, what's missing, how to fix it
+uv run anima providers list   # model providers and what she's running on
+uv run anima eval             # 考考她: the persona exam on the current model
 uv run anima chat             # talk in the terminal
 uv run anima napcat up        # start QQ (scan the QR code in the WebUI)
 uv run anima login bilibili   # QR login for Bilibili
@@ -83,10 +85,11 @@ bots/
   _template/         `uv run anima new <name>` copies this to start another bot
 src/anima/
   core/              brain, policy, humanizer, schedule, mood, memory, reflection, life, prompt
-  llm/               Claude (Anthropic SDK), OpenAI-compatible, and a scripted fake for tests
+  llm/               provider catalog + registry + routing; Claude (Anthropic SDK), OpenAI-compatible, fake
+  evals.py           考考她: persona exam
   skills/            the tools above; bots can add their own in bots/<name>/skills/*.py
   adapters/          playground, console, onebot (QQ), bilibili, wechat, douyin
-  web/               playground UI and webhooks
+  web/               playground UI, 模型提供商 panel, webhooks
 infra/napcat/        Docker compose + OneBot config template for QQ
 data/<bot>/          memory.db, logs, voice cache, cookies and browser profiles (gitignored)
 ```

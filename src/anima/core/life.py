@@ -113,6 +113,9 @@ class Life:
         today = brain.clock.today()
         life = brain.life()
 
+        if getattr(brain.llm, "demo", False):
+            return  # no real model yet: don't fill her diary or chats with canned lines
+
         await self.reminders()  # promises are kept even at night: she set an alarm
 
         if self._was_asleep and not life.asleep:

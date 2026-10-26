@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>模型提供商 · Anima</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23e5383b'/%3E%3Cpath d='M32 15l4.6 10.6 11.4 1-8.7 7.6 2.7 11.3L32 39.6l-10 5.9 2.7-11.3-8.7-7.6 11.4-1z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f5efe6; --bg2: #efe6d8; --panel: #fffdf9; --panel2: #fbf6ee; --ink: #2a2420; --ink2: #6f655c; --ink3: #a39788;
+  --line: #e8ddcd; --cola: #e5383b; --gold: #f2b544; --ok: #2f9e6f; --bad: #d64545; --shadow: 0 18px 50px -26px rgba(80, 50, 20, .35);
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #0b0f22; --bg2: #11173a; --panel: #141a3a; --panel2: #1a2148; --ink: #eef0ff; --ink2: #aab0d6; --ink3: #6f76a8;
+  --line: #262f5e; --shadow: 0 18px 60px -20px rgba(0, 0, 0, .7);
+} }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  color: var(--ink); background: radial-gradient(1100px 600px at 10% -10%, var(--bg2), transparent 60%), var(--bg); min-height: 100vh; }
+a { color: inherit; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 22px; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); padding: 18px 20px; }
+h1 { margin: 0; font-size: 26px; letter-spacing: .5px; } h2 { margin: 0 0 12px; font-size: 16px; } h3 { margin: 18px 0 8px; font-size: 13px; color: var(--ink2); letter-spacing: 1px; font-weight: 600; }
+.top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.top p { margin: 4px 0 0; color: var(--ink2); }
+.back { text-decoration: none; color: var(--ink2); border: 1px solid var(--line); padding: 7px 12px; border-radius: 12px; background: var(--panel); }
+.back:hover { color: var(--ink); border-color: var(--cola); }
+.pill { margin-left: auto; padding: 8px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 13.5px; }
+.pill b { color: var(--cola); }
+.pill.demo { border-color: #f1c58a; background: #fff4e0; color: #8a4a00; }
+@media (prefers-color-scheme: dark) { .pill.demo { background: #3a2a10; color: #ffc56b; border-color: #6a4a1a; } }
+
+.route-row { display: grid; grid-template-columns: 56px minmax(150px, 220px) minmax(170px, 280px) 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+.route-row label { font-weight: 600; } .route-row small { color: var(--ink3); }
+select, input[type=text], input[type=password], input[type=number], textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 12px; padding: 8px 11px; font: inherit; font-size: 14px; outline: none; }
+select:focus, input:focus, textarea:focus { border-color: var(--cola); }
+textarea { font: 12.5px/1.5 var(--mono); min-height: 64px; resize: vertical; }
+.temp { display: flex; gap: 8px; align-items: center; color: var(--ink2); font-size: 13px; }
+.temp input { width: 120px; accent-color: var(--cola); }
+.actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.actions .meta { color: var(--ink3); font-size: 12.5px; }
+button { border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 12px; padding: 8px 13px; font: inherit; font-size: 13.5px; cursor: pointer; white-space: nowrap; transition: transform .1s, background .2s, border-color .2s; }
+button:hover { border-color: var(--ink3); } button:active { transform: scale(.97); } button:disabled { opacity: .5; cursor: progress; }
+button.primary { background: var(--cola); color: #fff; border-color: transparent; } button.primary:hover { background: #d42f32; }
+button.ghost { background: transparent; } button.danger { color: var(--bad); }
+
+.grid { display: grid; grid-template-columns: minmax(330px, 440px) 1fr; gap: 18px; align-items: start; }
+.prov { display: flex; gap: 12px; align-items: center; padding: 11px 12px; border: 1px solid var(--line); border-radius: 16px; margin-bottom: 9px; cursor: pointer; background: var(--panel2); transition: border-color .2s, transform .15s; }
+.prov:hover { border-color: var(--ink3); } .prov.on { border-color: var(--cola); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cola) 18%, transparent); }
+.logo { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; flex: none; letter-spacing: .5px; }
+.prov .info { flex: 1; min-width: 0; } .prov .info b { display: block; }
+.prov .info small { color: var(--ink3); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag { font-size: 11.5px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink2); white-space: nowrap; }
+.tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.tag.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+.tag.use { color: #fff; background: var(--cola); border-color: transparent; }
+.found { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 14px; margin-bottom: 8px; font-size: 13.5px; }
+.found span { flex: 1; } .found code { font: 12px var(--mono); color: var(--ink3); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.tile { display: flex; gap: 8px; align-items: center; padding: 8px 9px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel2); cursor: pointer; font-size: 13px; text-align: left; }
+.tile .logo { width: 26px; height: 26px; border-radius: 8px; font-size: 10.5px; }
+.group { font-size: 12px; color: var(--ink3); margin: 12px 0 6px; }
+.empty { color: var(--ink3); font-size: 13.5px; padding: 6px 0; }
+
+.editor .head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.editor .head .logo { width: 46px; height: 46px; font-size: 15px; border-radius: 14px; }
+.editor .head input { font-size: 18px; font-weight: 600; }
+.field { margin: 12px 0; } .field > label { display: block; font-size: 12.5px; color: var(--ink2); margin-bottom: 5px; }
+.field .hint { font-size: 12px; color: var(--ink3); margin-top: 4px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { font: 12.5px var(--mono); padding: 4px 6px 4px 10px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); display: inline-flex; gap: 6px; align-items: center; }
+.chip button { border: 0; padding: 0 4px; background: transparent; color: var(--ink3); font-size: 14px; line-height: 1; }
+.addrow { display: flex; gap: 8px; }
+.result { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); font-size: 13.5px; display: none; }
+.result.show { display: block; } .result.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); } .result.bad { border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.preview { display: grid; gap: 5px; margin-top: 8px; }
+.preview .b { justify-self: start; max-width: 86%; padding: 8px 12px; border-radius: 16px 16px 16px 6px; background: var(--panel); border: 1px solid var(--line); animation: pop .25s ease-out both; }
+@keyframes pop { from { transform: translateY(5px); opacity: 0 } to { transform: none; opacity: 1 } }
+.price { font-size: 12.5px; color: var(--ink2); }
+.exam details { border-top: 1px dashed var(--line); padding: 7px 0; }
+.exam summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.exam summary small { color: var(--ink3); margin-left: auto; }
+.exam .fail { color: var(--bad); font-size: 12.5px; }
+.score { font-size: 22px; font-weight: 700; margin-right: 6px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--panel); padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; font-size: 14px; pointer-events: none; z-index: 9; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+@media (max-width: 920px) { .grid { grid-template-columns: 1fr; } .route-row { grid-template-columns: 1fr 1fr; } .route-row label { grid-column: 1 / -1; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="back" href="/">← 回到聊天</a>
+    <div><h1>模型提供商</h1><p>给 <b id="botName">可乐</b> 接上大脑：选一家，填好 key，测一下，点「应用」就换上了，不用重启。</p></div>
+    <div class="pill" id="activePill">…</div>
+  </header>
+
+  <section class="card">
+    <h2>正在使用</h2>
+    <div class="route-row"><label>聊天</label><select id="mainP"></select><select id="mainM"></select>
+      <div class="temp">温度 <input type="range" id="mainT" min="0" max="2" step="0.1"><b id="mainTv">–</b></div></div>
+    <div class="route-row"><label>后台</label><select id="sideP"></select><select id="sideM"></select><small>日记、每日计划、记忆整理</small></div>
+    <div class="route-row"><label>备用</label><select id="backP"></select><select id="backM"></select><small>主模型出错时自动顶上</small></div>
+    <div class="actions">
+      <button class="primary" id="apply">应用</button>
+      <button class="ghost" id="reset">恢复 bot.toml 默认</button>
+      <span class="meta" id="routeMeta"></span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>已接入</h2>
+      <div id="list"></div>
+      <h3>在这台电脑上发现</h3>
+      <div id="found"><div class="empty">扫描中…</div></div>
+      <h3>添加提供商</h3>
+      <div id="gallery"></div>
+    </section>
+
+    <section class="card editor" id="editor">
+      <div class="empty" id="editorEmpty">从左边选一个提供商，或者添加一个新的。</div>
+      <div id="form" style="display:none">
+        <div class="head"><div class="logo" id="fLogo">?</div><input type="text" id="fName"><button class="ghost danger" id="del" title="删除">删除</button></div>
+        <div class="field"><label>接口地址（Base URL）</label><input type="text" id="fUrl" placeholder="https://…">
+          <div class="hint" id="fProto"></div></div>
+        <div class="two">
+          <div class="field"><label>API Key</label><input type="password" id="fKey" autocomplete="off" placeholder="粘贴 key">
+            <div class="hint" id="fKeyHint"></div></div>
+          <div class="field"><label>或者从环境变量读取</label><input type="text" id="fEnv" placeholder="比如 DEEPSEEK_API_KEY">
+            <div class="hint">写进项目的 .env 或在终端 export 都行</div></div>
+        </div>
+        <div class="field"><label>模型</label>
+          <div class="chips" id="fModels"></div>
+          <div class="addrow"><input type="text" id="fNewModel" placeholder="手动添加模型 id，回车确认"><button id="fetch">获取模型列表</button></div>
+          <div class="hint price" id="fPrice"></div></div>
+        <div class="field"><label>请求参数（JSON，聊天时附带；温度在上面「正在使用」里调）</label>
+          <textarea id="fParams" spellcheck="false"></textarea>
+          <div class="hint" id="fParamsHint"></div></div>
+        <div class="actions">
+          <button class="primary" id="save">保存</button>
+          <button id="test">测试连接</button>
+          <button id="hear">听听她在这个模型上的样子</button>
+          <button id="exam" title="12 个聊天场景，看她像不像真人、守不守底线">考考她</button>
+          <span class="meta" id="fMeta"></span>
+        </div>
+        <div class="result" id="result"></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const S = { state: null, sel: null, draft: null, found: [] };
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v, cur) => (cur === "USD" ? "$" : cur === "CNY" ? "¥" : (cur || "") + " ") + (+v).toFixed(4);
+const host = (u) => { try { return new URL(u).host; } catch { return u || "（未填写）"; } };
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600); }
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+  return data;
+}
+const preset = (id) => S.state.presets.find((p) => p.id === id);
+const provider = (id) => S.state.providers.find((p) => p.id === id);
+
+async function load() {
+  S.state = await api("/api/providers");
+  render();
+  scan();
+}
+async function scan() {
+  try { S.found = await api("/api/providers/detect"); } catch { S.found = []; }
+  renderFound();
+}
+
+function render() {
+  const st = S.state;
+  $("botName").textContent = st.bot.name;
+  const pill = $("activePill");
+  if (st.active) {
+    pill.className = "pill"; pill.innerHTML = `生效中 · <b>${esc(st.active.main.provider)}</b> ${esc(st.active.main.model)} · 本次花费 ${esc(st.cost)}`;
+  } else { pill.className = "pill demo"; pill.textContent = `演示模式：${st.demo_note || "还没接上模型"}`; }
+  renderList(); renderGallery(); renderRouting();
+  if (S.sel) openEditor(S.sel, true);
+}
+
+function tags(p) {
+  const out = [];
+  const used = routeIds();
+  if (used.main === p.id) out.push('<span class="tag use">聊天中</span>');
+  else if (used.side === p.id || used.back === p.id) out.push('<span class="tag">在用</span>');
+  if (!p.has_key) out.push('<span class="tag bad">缺 key</span>');
+  else if (p.last_test) out.push(p.last_test.ok ? `<span class="tag ok">✓ ${p.last_test.latency_ms}ms</span>` : '<span class="tag bad">✗ 连接失败</span>');
+  return out.join(" ");
+}
+function routeIds() { const r = S.state.routing; return { main: r.main?.provider, side: r.side?.provider, back: r.backups?.[0]?.provider }; }
+
+function renderList() {
+  const list = S.state.providers;
+  $("list").innerHTML = list.length ? list.map((p) => `
+    <div class="prov ${S.sel === p.id ? "on" : ""}" data-id="${p.id}">
+      <div class="logo" style="background:${p.color}">${esc(p.initials)}</div>
+      <div class="info"><b>${esc(p.name)}</b><small>${esc(host(p.base_url))} · ${p.models.length} 个模型${p.key_source ? " · key：" + esc(p.key_source) : ""}</small></div>
+      <div>${tags(p)}</div>
+    </div>`).join("") : '<div class="empty">还没有接入任何提供商。下面挑一家，或者导入在这台电脑上发现的。</div>';
+  document.querySelectorAll(".prov").forEach((el) => el.onclick = () => openEditor(el.dataset.id));
+}
+
+function renderFound() {
+  const items = S.found.filter((d) => !d.imported);
+  $("found").innerHTML = items.length ? items.map((d) => `
+    <div class="found"><div class="logo" style="background:${preset(d.preset)?.color || "#888"};width:28px;height:28px;font-size:11px;border-radius:9px">${esc(preset(d.preset)?.initials || "?")}</div>
+      <span><b>${esc(d.name)}</b><br><code>${esc(d.source)}${d.key_hint ? " · " + esc(d.key_hint) : ""}</code></span>
+      <button data-id="${esc(d.id)}">导入</button></div>`).join("")
+    : '<div class="empty">没有发现现成的 key 或本机模型。把 key 放进项目的 .env（如 DEEPSEEK_API_KEY=…），或直接在右侧粘贴。</div>';
+  document.querySelectorAll("#found button").forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { const r = await api("/api/providers/import", { method: "POST", body: { id: b.dataset.id } }); S.state = r.state; S.sel = r.provider.id; render(); scan(); toast("导入好了，测一下连接吧"); }
+    catch (e) { toast(e.message); b.disabled = false; }
+  });
+}
+
+function renderGallery() {
+  const groups = S.state.groups;
+  let html = "";
+  for (const [g, label] of Object.entries(groups)) {
+    const items = S.state.presets.filter((p) => p.group === g);
+    if (!items.length) continue;
+    html += `<div class="group">${label}</div><div class="gallery">` + items.map((p) => `
+      <button class="tile" data-preset="${p.id}" title="${esc(p.note || p.base_url)}"><div class="logo" style="background:${p.color}">${esc(p.initials)}</div>${esc(p.name)}</button>`).join("") + "</div>";
+  }
+  $("gallery").innerHTML = html;
+  document.querySelectorAll(".tile").forEach((el) => el.onclick = () => newDraft(el.dataset.preset));
+}
+
+function options(sel, items, value, empty) {
+  sel.innerHTML = (empty ? `<option value="">${empty}</option>` : "") + items.map(([v, label]) => `<option value="${esc(v)}" ${v === value ? "selected" : ""}>${esc(label)}</option>`).join("");
+  if (value && !items.some(([v]) => v === value)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(value)}" selected>${esc(value)}</option>`);
+}
+function providerChoices() {
+  const mine = S.state.providers.map((p) => [p.id, p.name + (p.has_key ? "" : "（缺 key）")]);
+  const r = S.state.routing, used = [r.main?.provider, r.side?.provider, ...(r.backups || []).map((b) => b.provider)];
+  const presetsInUse = used.filter((id) => id && !provider(id) && preset(id)).map((id) => [id, preset(id).name + "（未接入）"]);
+  return [...mine, ...presetsInUse.filter((a, i, all) => all.findIndex((b) => b[0] === a[0]) === i)];
+}
+function modelChoices(pid) { const p = provider(pid) || preset(pid); return (p?.models || []).map((m) => [m, m]); }
+
+function renderRouting() {
+  const r = S.state.routing;
+  const pairs = [["main", r.main, ""], ["side", r.side, "跟聊天一样"], ["back", r.backups?.[0], "不用备用"]];
+  for (const [k, t, empty] of pairs) {
+    const pSel = $(k + "P"), mSel = $(k + "M");
+    options(pSel, providerChoices(), t?.provider || "", empty);
+    const refreshModels = (keep) => options(mSel, modelChoices(pSel.value), keep, pSel.value ? null : "—");
+    refreshModels(t?.model || "");
+    pSel.onchange = () => refreshModels(provider(pSel.value)?.models?.[0] || preset(pSel.value)?.default_model || "");
+  }
+  const temp = r.main?.params?.temperature ?? provider(r.main?.provider)?.effective_params?.temperature;
+  $("mainT").value = temp ?? 1; $("mainTv").textContent = temp ?? "默认";
+  $("mainT").oninput = () => $("mainTv").textContent = $("mainT").value;
+  $("routeMeta").textContent = r.source === "panel" ? "当前设置来自这个面板（覆盖 bot.toml）" : "当前设置来自 bot.toml";
+}
+
+async function applyRouting() {
+  const main = $("mainP").value;
+  if (!main) return toast("先选一个聊天用的提供商");
+  const target = (k) => $(k + "P").value ? { provider: $(k + "P").value, model: $(k + "M").value } : null;
+  const body = { main: { ...target("main"), params: { temperature: parseFloat($("mainT").value) } }, side: target("side"), backups: target("back") ? [target("back")] : [] };
+  $("apply").disabled = true;
+  try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(`换好了：${S.state.active ? S.state.active.main.provider + " · " + S.state.active.main.model : "仍是演示模式（" + S.state.demo_note + "）"}`); }
+  catch (e) { toast(e.message); }
+  $("apply").disabled = false;
+}
+async function resetRouting() { S.state = await api("/api/routing", { method: "DELETE" }); render(); toast("已恢复为 bot.toml 的设置"); }
+
+// ---------------------------------------------------------------- editor
+function newDraft(pid) {
+  const p = preset(pid);
+  S.sel = null; S.draft = { id: null, preset: p.id, name: p.name, base_url: p.base_url, models: [...p.models], params: {}, api_key_env: "", color: p.color, initials: p.initials, has_key: !p.needs_key, needs_key: p.needs_key, key_hint: "", key_source: "", effective_params: p.params, prices: p.prices, protocol: p.protocol };
+  renderList(); fillForm(S.draft, p);
+}
+function openEditor(id, quiet) {
+  const p = provider(id); if (!p) { S.sel = null; $("form").style.display = "none"; $("editorEmpty").style.display = ""; return; }
+  S.sel = id; S.draft = JSON.parse(JSON.stringify(p));
+  if (!quiet) renderList(); else document.querySelectorAll(".prov").forEach((el) => el.classList.toggle("on", el.dataset.id === id));
+  fillForm(S.draft, preset(p.preset));
+}
+function fillForm(d, p) {
+  $("editorEmpty").style.display = "none"; $("form").style.display = "";
+  $("fLogo").style.background = d.color; $("fLogo").textContent = d.initials;
+  $("fName").value = d.name; $("fUrl").value = d.base_url; $("fEnv").value = d.api_key_env || ""; $("fKey").value = "";
+  $("fProto").innerHTML = `${d.protocol === "anthropic" ? "Anthropic 原生协议" : "OpenAI 兼容协议"}${p?.docs_url ? ` · <a href="${p.docs_url}" target="_blank" rel="noopener">文档</a>` : ""}${p?.note ? " · " + esc(p.note) : ""}`;
+  $("fKeyHint").innerHTML = d.key_hint ? `已配置 ${esc(d.key_hint)}（${esc(d.key_source)}），留空就保持不变` : (d.needs_key === false ? "本机模型不需要 key" : `还没有 key${p?.key_url ? ` · <a href="${p.key_url}" target="_blank" rel="noopener">去官网获取 ↗</a>` : ""}`);
+  $("fParams").value = Object.keys(d.params || {}).length ? JSON.stringify(d.params, null, 2) : "";
+  $("fParamsHint").textContent = `留空用推荐值：${JSON.stringify(p?.params || {})}`;
+  $("del").style.display = d.id ? "" : "none";
+  $("result").className = "result"; $("fMeta").textContent = d.id ? "" : "新的提供商，保存后才能测试";
+  renderChips();
+}
+function renderChips() {
+  const d = S.draft;
+  $("fModels").innerHTML = d.models.length ? d.models.map((m, i) => `<span class="chip">${esc(m)}<button data-i="${i}" title="移除">×</button></span>`).join("") : '<span class="empty">还没有模型：点「获取模型列表」，或手动添加</span>';
+  document.querySelectorAll("#fModels button").forEach((b) => b.onclick = () => { d.models.splice(+b.dataset.i, 1); renderChips(); });
+  const m = d.models[0], price = d.prices?.[m];
+  $("fPrice").textContent = price ? `${m} 参考价（每百万 tokens）：输入 ${money(price.input, price.currency).replace(/0+$/, "")} · 缓存命中 ${money(price.cached, price.currency).replace(/0+$/, "")} · 输出 ${money(price.output, price.currency).replace(/0+$/, "")}${price.peak_multiplier > 1 ? `，北京时间工作日 ${price.peak_hours.join("、")} 为高峰 ×${price.peak_multiplier}` : ""}` : "";
+}
+function collect() {
+  const d = S.draft;
+  let params = {};
+  const raw = $("fParams").value.trim();
+  if (raw) { try { params = JSON.parse(raw); } catch { throw new Error("请求参数不是合法的 JSON"); } }
+  return { id: d.id, preset: d.preset, name: $("fName").value.trim() || d.name, base_url: $("fUrl").value.trim(), api_key: $("fKey").value.trim() || undefined, api_key_env: $("fEnv").value.trim(), models: d.models, params };
+}
+async function save(silent) {
+  const body = collect();
+  const r = await api("/api/providers", { method: "POST", body });
+  S.state = r.state; S.sel = r.provider.id; render();
+  if (!silent) toast("保存好了");
+  return r.provider;
+}
+async function busy(btn, fn) { btn.disabled = true; try { await fn(); } catch (e) { showResult(false, esc(e.message)); } btn.disabled = false; }
+function showResult(ok, html) { const r = $("result"); r.className = "result show " + (ok ? "ok" : "bad"); r.innerHTML = html; }
+const chosenModel = () => S.draft?.models?.[0];
+
+$("fNewModel").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.value.trim()) { S.draft.models.unshift(e.target.value.trim()); e.target.value = ""; renderChips(); } });
+$("save").onclick = () => busy($("save"), () => save(false));
+$("del").onclick = async () => { if (!S.draft?.id || !confirm(`删除「${S.draft.name}」？`)) return; S.state = await api(`/api/providers/${S.draft.id}`, { method: "DELETE" }); S.sel = null; S.draft = null; render(); $("form").style.display = "none"; $("editorEmpty").style.display = ""; scan(); };
+$("fetch").onclick = () => busy($("fetch"), async () => {
+  const p = await save(true);
+  const r = await api(`/api/providers/${p.id}/models`, { method: "POST", body: { model: chosenModel() } });
+  S.state = r.state; openEditor(p.id);
+  showResult(true, `拿到 ${r.models.length} 个模型：<br><code style="font:12px var(--mono)">${r.models.map(esc).join("、")}</code>`);
+});
+$("test").onclick = () => busy($("test"), async () => {
+  const p = await save(true);
+  const r = await api(`/api/providers/${p.id}/test`, { method: "POST", body: { model: chosenModel() } });
+  S.state = r.state; openEditor(p.id, true); renderList();
+  if (r.ok) showResult(true, `✓ 连上了 · ${esc(r.model)} · ${r.latency_ms} ms · 回复「${esc(r.reply)}」${r.currency ? ` · 花费 ${money(r.cost, r.currency)}` : ""}`);
+  else showResult(false, `✗ ${esc(r.error)}`);
+});
+$("hear").onclick = () => busy($("hear"), async () => {
+  const p = await save(true);
+  showResult(true, `正在请 ${esc(S.state.bot.name)} 用 ${esc(chosenModel() || "默认模型")} 打个招呼…`);
+  const r = await api(`/api/providers/${p.id}/preview`, { method: "POST", body: { model: chosenModel() } });
+  const bubbles = r.bubbles.map((b, i) => `<div class="b" style="animation-delay:${i * 0.35}s">${b.voice ? "🎤 " + esc(b.voice) : esc(b.text)}</div>`).join("");
+  showResult(true, `<b>你：</b>嗨可乐！第一次见面，跟我打个招呼、介绍一下自己吧<div class="preview">${bubbles || '<div class="empty">（她没说话）</div>'}</div><div class="actions"><span class="meta">${esc(r.model)} · ${r.latency_ms} ms${r.currency ? " · " + money(r.cost, r.currency) : ""}</span></div>`);
+});
+$("exam").onclick = () => busy($("exam"), async () => {
+  const p = await save(true);
+  showResult(true, `考试中：12 个场景，用 ${esc(chosenModel() || "默认模型")} 一个个来，大概要半分钟到几分钟…`);
+  const r = await api(`/api/providers/${p.id}/exam`, { method: "POST", body: { model: chosenModel() } });
+  const s = r.summary;
+  const rows = r.results.map((x) => `<details><summary>${x.passed ? "✅" : "❌"} ${esc(x.title)}<small>${x.latency_ms} ms</small></summary>
+    ${x.lines.map(([who, text]) => `<div><b>${esc(who)}：</b>${esc(text)}</div>`).join("")}
+    <div class="preview">${x.bubbles.map((b) => `<div class="b">${esc(b)}</div>`).join("") || '<div class="empty">（没说话）</div>'}</div>
+    ${x.tools.length ? `<div class="meta">用了工具：${x.tools.map(esc).join("、")}</div>` : ""}
+    ${x.failed.length || x.error ? `<div class="fail">没通过：${esc([...x.failed, x.error].filter(Boolean).join("；"))}</div>` : ""}</details>`).join("");
+  showResult(s.passed >= s.scenarios * 0.75, `<div><span class="score">${s.passed}/${s.scenarios}</span>场景通过 · 检查项 ${s.checks_passed}/${s.checks} · 平均 ${s.avg_latency_ms} ms${s.currency ? " · 花费 " + money(s.cost, s.currency) : ""}</div>
+    <div class="exam">${rows}</div><div class="meta">完整报告：${esc(r.report)}</div>`);
+});
+$("apply").onclick = applyRouting; $("reset").onclick = resetRouting;
+load().catch((e) => toast(e.message));
+</script>
+</body>
+</html>
