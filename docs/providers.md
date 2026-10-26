@@ -1,5 +1,7 @@
 # Model providers
 
+![The 模型提供商 panel running the persona exam on a local model](providers-panel.jpg)
+
 Claudette's brain can run on any of 17 providers, switched live from the **模型提供商** panel
 (`uv run anima play`, then http://127.0.0.1:8765/providers) or from the terminal. Her default is
 **DeepSeek** (`deepseek-flash`, DeepSeek V4.1 Flash).
