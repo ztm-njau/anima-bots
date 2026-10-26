@@ -58,8 +58,9 @@ uv run anima play             # http://127.0.0.1:8765, then 模型提供商 to c
 Run `uv run anima …` inside this folder, or install a shortcut once with
 `scripts/install-shortcut.sh` and use `anima …` from anywhere.
 
-Her brain defaults to **DeepSeek** (`deepseek-flash`). Connect it, or any of 17 providers
-(Kimi, GLM, Qwen, Doubao, MiniMax, Claude, OpenRouter, local Ollama / LM Studio…), in the
+Her brain defaults to **DeepSeek** (`deepseek-flash`). Connect it, or any of 18 providers
+(Kimi, GLM, Qwen, Doubao, MiniMax, Claude, OpenRouter, a local [magpie](https://github.com/yetone/magpie)
+gateway, Ollama / LM Studio…), in the
 **模型提供商** panel at http://127.0.0.1:8765/providers: paste a key, test it, hear how she
 sounds on that model, give her a 12-scenario exam, and switch live. A `DEEPSEEK_API_KEY` in `.env`
 works too. Without any key she runs in demo mode (canned lines). See [docs/providers.md](docs/providers.md).

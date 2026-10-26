@@ -14,7 +14,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 Protocol = Literal["openai", "anthropic"]
-Group = Literal["cn", "global", "aggregator", "local", "custom"]
+Group = Literal["gateway", "cn", "global", "aggregator", "local", "custom"]
 
 
 @dataclass
@@ -90,6 +90,12 @@ class Preset:
 _DS_PEAK = ["09:00-12:00", "14:00-18:00"]
 
 PRESETS: list[Preset] = [
+    Preset(
+        "magpie", "magpie 网关", "openai", "http://127.0.0.1:3425/v1", "gateway", "#1C1C1E",
+        [], "", ["MAGPIE_GATEWAY_KEY", "MAGPIE_API_KEY"], "https://usemagpie.ai", "https://usemagpie.ai/docs/start",
+        needs_key=False,
+        note="yetone/magpie 的本机网关：key 留在 magpie 里，模型写作 provider/model，支持路由组、多账号自动切换和用量统计",
+    ),
     Preset(
         "deepseek", "DeepSeek", "openai", "https://api.deepseek.com", "cn", "#4D6BFE",
         ["deepseek-flash", "deepseek-v4-pro"], "deepseek-flash", ["DEEPSEEK_API_KEY"],
@@ -189,8 +195,30 @@ PRESETS: list[Preset] = [
 ]
 
 PRESET_BY_ID = {p.id: p for p in PRESETS}
-GROUP_NAMES = {"cn": "国内官方", "aggregator": "聚合平台", "global": "海外官方", "local": "本机模型", "custom": "自定义"}
+GROUP_NAMES = {"gateway": "本机网关", "cn": "国内官方", "aggregator": "聚合平台", "global": "海外官方",
+               "local": "本机模型", "custom": "自定义"}
+GATEWAYS = {"magpie"}  # serve other vendors' models as "vendor/model"
+
+# How gateways and aggregators spell vendors in "vendor/model" ids.
+VENDOR_ALIASES = {
+    "deepseek": "deepseek", "deepseek-ai": "deepseek",
+    "moonshot": "kimi", "moonshotai": "kimi", "kimi": "kimi",
+    "zhipu": "zhipu", "zhipuai": "zhipu", "zai": "zhipu", "zai-org": "zhipu", "z-ai": "zhipu", "glm": "zhipu",
+    "qwen": "qwen", "dashscope": "qwen", "bailian": "qwen", "alibaba": "qwen",
+    "doubao": "doubao", "volcengine": "doubao", "ark": "doubao",
+    "minimax": "minimax", "minimaxai": "minimax", "stepfun": "stepfun", "mimo": "mimo", "xiaomi": "mimo",
+    "anthropic": "anthropic", "claude": "anthropic", "openai": "openai", "gemini": "gemini", "google": "gemini",
+    "ollama": "ollama", "lmstudio": "lmstudio",
+}
 
 
 def preset(preset_id: str) -> Preset | None:
     return PRESET_BY_ID.get(preset_id)
+
+
+def vendor_of(model: str) -> tuple[Preset | None, str]:
+    """``"deepseek/deepseek-flash"`` -> (the DeepSeek preset, ``"deepseek-flash"``)."""
+    vendor, sep, bare = model.partition("/")
+    if not sep:
+        return None, model
+    return PRESET_BY_ID.get(VENDOR_ALIASES.get(vendor.lower(), "")), bare

@@ -21,7 +21,7 @@ from dotenv import dotenv_values
 
 import anima.config as config
 from anima.config import REPO_ROOT, Bot
-from anima.llm.catalog import PRESET_BY_ID, PRESETS, Preset, Price
+from anima.llm.catalog import GATEWAYS, PRESET_BY_ID, PRESETS, VENDOR_ALIASES, Preset, Price, vendor_of
 
 _SLUG = re.compile(r"[^a-z0-9]+")
 
@@ -69,18 +69,31 @@ class ProviderEntry:
     def preset_obj(self) -> Preset | None:
         return PRESET_BY_ID.get(self.preset)
 
-    def price_table(self) -> dict[str, Price]:
+    def price_table(self, extra_models: list[str] | None = None) -> dict[str, Price]:
         table = dict(self.preset_obj.prices) if self.preset_obj else {}
+        for model in [*self.models, *(extra_models or [])]:  # "deepseek/deepseek-flash" costs what DeepSeek charges
+            vendor, bare = vendor_of(model)
+            if vendor and bare in vendor.prices and model not in table:
+                table[model] = vendor.prices[bare]
         for model, data in self.prices.items():
             price = Price.from_dict(data)
             if price:
                 table[model] = price
         return table
 
-    def chat_params(self) -> dict[str, Any]:
+    def chat_params(self, model: str = "") -> dict[str, Any]:
         base = dict(self.preset_obj.params) if self.preset_obj else {}
+        if self.preset in GATEWAYS and model:
+            vendor, _ = vendor_of(model)  # through magpie, DeepSeek still wants its own settings
+            base = dict(vendor.params) if vendor else base
         base.update(self.params)
         return base
+
+    def sees_images(self, model: str) -> bool:
+        if model in self.vision_models or (self.preset_obj and model in self.preset_obj.vision_models):
+            return True
+        vendor, bare = vendor_of(model)
+        return bool(vendor and bare in vendor.vision_models)
 
 
 class ProviderStore:
@@ -257,17 +270,36 @@ async def detect(store: ProviderStore) -> list[Detection]:
                                    spec={"preset": p.id, "api_key_env": token_var},
                                    imported=(p.id, token_var) in known_sources))
     async with httpx.AsyncClient(timeout=0.8) as client:
-        for preset_id in ("ollama", "lmstudio"):
+        for preset_id in ("magpie", "ollama", "lmstudio"):
             p = PRESET_BY_ID[preset_id]
             try:
-                resp = await client.get(f"{p.base_url}/models")
+                resp = await client.get(f"{p.base_url}/models", headers={"Authorization": "Bearer magpie"})
+                resp.raise_for_status()
                 models = sorted(m["id"] for m in resp.json().get("data", []) if not m["id"].startswith("text-embedding"))
             except (httpx.HTTPError, ValueError, KeyError):
                 continue
-            found.append(Detection(f"local:{preset_id}", p.id, p.name, f"本机 {p.name}（{len(models)} 个模型）",
+            label = "本机 magpie 网关" if preset_id == "magpie" else f"本机 {p.name}"
+            found.append(Detection(f"local:{preset_id}", p.id, p.name, f"{label}（{len(models)} 个模型）",
                                    models=models, spec={"preset": p.id, "models": models},
                                    imported=any(e.preset == preset_id for e in store.all())))
     return found
+
+
+def gateway_models(entry: ProviderEntry, key: str = "", timeout: float = 0.6) -> list[str]:
+    """Model ids a running gateway offers right now (empty if it isn't running)."""
+    try:
+        resp = httpx.get(f"{entry.base_url}/models", headers={"Authorization": f"Bearer {key or 'magpie'}"}, timeout=timeout)
+        resp.raise_for_status()
+        return [m["id"] for m in resp.json().get("data", [])]
+    except (httpx.HTTPError, ValueError, KeyError):
+        return []
+
+
+def via_gateway(vendor_preset: str, model: str, models: list[str]) -> str:
+    """Pick the gateway's id for a vendor model: "deepseek-flash" -> "deepseek/deepseek-flash"."""
+    mine = [m for m in models if "/" in m and VENDOR_ALIASES.get(m.split("/", 1)[0].lower()) == vendor_preset]
+    exact = [m for m in mine if m.split("/", 1)[1] == model]
+    return (exact or mine or [""])[0]
 
 
 # ------------------------------------------------------------------ routing

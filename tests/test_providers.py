@@ -216,3 +216,73 @@ async def test_panel_api_end_to_end(tmp_path, monkeypatch, store):
     finally:
         await runtime.brain.stop()
         await runtime.memory.close()
+
+
+# ------------------------------------------------------------------ magpie gateway
+
+from contextlib import asynccontextmanager  # noqa: E402
+
+from anima.llm.catalog import vendor_of  # noqa: E402
+
+
+@asynccontextmanager
+async def serve(app):
+    import asyncio
+
+    port = _free_port()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    task = asyncio.create_task(server.serve())
+    while not server.started:  # noqa: ASYNC110 - uvicorn exposes no startup event
+        await asyncio.sleep(0.02)
+    try:
+        yield f"http://127.0.0.1:{port}/v1"
+    finally:
+        server.should_exit = True
+        await task
+
+
+def fake_gateway(models):
+    app = FastAPI()
+    seen = {}
+
+    @app.get("/v1/models")
+    async def list_models(request: Request):
+        seen["auth"] = request.headers.get("authorization")
+        return {"object": "list", "data": [{"id": m, "object": "model"} for m in models]}
+
+    return app, seen
+
+
+def test_vendor_ids_map_to_presets():
+    assert vendor_of("deepseek/deepseek-flash")[0].id == "deepseek"
+    assert vendor_of("moonshotai/kimi-k3")[0].id == "kimi" and vendor_of("zai-org/GLM-5.3")[0].id == "zhipu"
+    assert vendor_of("deepseek-flash") == (None, "deepseek-flash")
+
+
+async def test_no_deepseek_key_but_magpie_serves_deepseek(bot, store):
+    app, seen = fake_gateway(["auto/x", "ollama/qwen2.5:1.5b", "deepseek/deepseek-v4-pro", "deepseek/deepseek-flash"])
+    async with serve(app) as base:
+        store.upsert({"preset": "magpie", "base_url": base})
+        import asyncio
+
+        llm = await asyncio.to_thread(make_provider, bot, store=store)  # the gateway probe is a sync call
+    assert isinstance(llm, RoutedLLM)
+    assert (llm.label, llm.model) == ("DeepSeek（经 magpie）", "deepseek/deepseek-flash")
+    assert seen["auth"] == "Bearer magpie", "loopback gateways take any token"
+    assert llm.main.params["extra_body"]["thinking"]["type"] == "disabled", "DeepSeek's settings travel through"
+    assert llm.main.prices["deepseek/deepseek-flash"].currency == "CNY" and llm.supports_vision
+
+
+async def test_gateway_is_detected_and_imports_with_models(store, monkeypatch):
+    from anima.llm.registry import detect
+
+    app, _ = fake_gateway(["deepseek/deepseek-flash", "ollama/qwen2.5:1.5b"])
+    async with serve(app) as base:
+        monkeypatch.setattr(PRESET_BY_ID["magpie"], "base_url", base)
+        for other in ("ollama", "lmstudio"):
+            monkeypatch.setattr(PRESET_BY_ID[other], "base_url", "http://127.0.0.1:9/v1")  # nothing there
+        found = {d.id: d for d in await detect(store)}
+    gateway = found["local:magpie"]
+    assert gateway.models == ["deepseek/deepseek-flash", "ollama/qwen2.5:1.5b"] and "magpie" in gateway.source
+    entry = store.upsert(gateway.spec)
+    assert entry.preset == "magpie" and store.public(entry)["has_key"], "no key needed for a local gateway"

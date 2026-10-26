@@ -6,7 +6,8 @@ from loguru import logger
 
 from anima.config import Bot, LLMConfig
 from anima.llm.base import LLMError, LLMProvider, LLMResult, ToolSpec, Turn, Usage
-from anima.llm.registry import ProviderEntry, ProviderStore, Target, load_routing
+from anima.llm.catalog import GATEWAYS
+from anima.llm.registry import ProviderEntry, ProviderStore, Target, gateway_models, load_routing, via_gateway
 
 __all__ = ["LLMError", "LLMProvider", "LLMResult", "ToolSpec", "Turn", "Usage", "build_target", "make_provider"]
 
@@ -30,6 +31,8 @@ def build_target(store: ProviderStore, target: Target, cfg: LLMConfig) -> tuple[
     preset = entry.preset_obj
     if (preset.needs_key if preset else True) and not key:
         return None, f"{entry.name} 还没有 API key"
+    if entry.preset in GATEWAYS and not key:
+        key = "magpie"  # the gateway accepts any token from this computer
     model = target.model or (preset.default_model if preset else "") or (entry.models[0] if entry.models else "")
     if not model:
         return None, f"{entry.name} 还没选模型"
@@ -45,14 +48,32 @@ def build_target(store: ProviderStore, target: Target, cfg: LLMConfig) -> tuple[
     else:
         from anima.llm.openai_compat import OpenAICompatProvider
 
-        vision = model in entry.vision_models or bool(preset and model in preset.vision_models)
         provider = OpenAICompatProvider(
             model, model, base_url=entry.base_url, api_key=key, max_tokens=cfg.max_tokens,
-            vision=vision and cfg.vision, params={**entry.chat_params(), **target.params}, label=entry.name,
+            vision=entry.sees_images(model) and cfg.vision, params={**entry.chat_params(model), **target.params},
+            label=entry.name,
         )
-    provider.prices = entry.price_table()
+    provider.prices = entry.price_table([model])
     provider.provider_id = entry.id  # type: ignore[attr-defined]
     return provider, ""
+
+
+def through_gateway(store: ProviderStore, target: Target, cfg: LLMConfig) -> tuple[LLMProvider | None, str]:
+    """No key for a vendor? If a magpie gateway on this computer serves that vendor, use it there."""
+    if target.provider in GATEWAYS:
+        return None, ""
+    gateway = store.entry_for("magpie")
+    vendor = store.entry_for(target.provider)
+    if gateway is None or vendor is None or not gateway.enabled:
+        return None, ""
+    key, _ = store.resolve_key(gateway)
+    model = via_gateway(vendor.preset, target.model, gateway_models(gateway, key))
+    if not model:
+        return None, ""
+    provider, _ = build_target(store, Target("magpie", model, target.params), cfg)
+    if provider is not None:
+        provider.label = f"{vendor.name}（经 magpie）"
+    return provider, model
 
 
 def make_provider(bot: Bot, *, force_fake: bool = False, store: ProviderStore | None = None) -> LLMProvider:
@@ -65,11 +86,17 @@ def make_provider(bot: Bot, *, force_fake: bool = False, store: ProviderStore | 
     store = store or ProviderStore()
     routing = load_routing(bot)
     main, why = build_target(store, routing.main, cfg)
+    if main is None and "API key" in why:
+        main, via = through_gateway(store, routing.main, cfg)
+        if main is not None:
+            logger.info("{}; using {} through the local magpie gateway instead", why, via)
     if main is None:
         logger.warning("{}: {} runs in demo mode (canned replies) until this is fixed", why, bot.config.identity.name)
         demo = FakeLLM()
         demo.note = why  # type: ignore[attr-defined]
         return demo
-    side = build_target(store, routing.side, cfg)[0] if routing.side else None
+    side = None
+    if routing.side:
+        side = build_target(store, routing.side, cfg)[0] or through_gateway(store, routing.side, cfg)[0]
     backups = [p for p in (build_target(store, t, cfg)[0] for t in routing.backups) if p]
     return RoutedLLM(main, side or main, backups, routing.source)

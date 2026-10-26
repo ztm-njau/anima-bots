@@ -2,7 +2,7 @@
 
 ![The 模型提供商 panel running the persona exam on a local model](providers-panel.jpg)
 
-Claudette's brain can run on any of 17 providers, switched live from the **模型提供商** panel
+Claudette's brain can run on any of 18 providers, switched live from the **模型提供商** panel
 (`uv run anima play`, then http://127.0.0.1:8765/providers) or from the terminal. Her default is
 **DeepSeek** (`deepseek-flash`, DeepSeek V4.1 Flash).
 
@@ -23,6 +23,24 @@ Any one of these works:
 Get a key at https://platform.deepseek.com/api_keys. Reference prices for `deepseek-flash`
 (per million tokens): ¥1 input, ¥0.02 cached input, ¥4 output, doubled on weekdays 9–12 and 14–18
 Beijing time. Her evenings are off-peak, and the prompt layout keeps DeepSeek's prefix cache warm.
+
+## Or let magpie hold the keys
+
+[magpie](https://github.com/yetone/magpie) (yetone, MIT) is a menu-bar app with one local gateway
+(`127.0.0.1:3425`) for every agent you use: you add DeepSeek, Kimi, your Claude or ChatGPT plan,
+local models… once, and magpie handles failover between accounts, routing groups, privacy masking
+and usage. If you already use it, Claudette can just plug in:
+
+- With magpie running, the panel shows **本机 magpie 网关** under 在这台电脑上发现. Import it (no key
+  needed from this computer), then press **一键用它** on the DeepSeek suggestion, or pick any
+  `provider/model` (including routing groups like `group/…`) as her chat model.
+- You don't even have to do that: if DeepSeek has no key in Anima but magpie serves a `deepseek/…`
+  model, she quietly uses DeepSeek through magpie.
+- DeepSeek's settings (thinking off, temperature 1.3), its prices and its image support follow the
+  model through the gateway.
+
+Checked against magpie's own Docker image (2026-10-26 build) with Ollama behind it: model list,
+chat with tools, JSON output, and the persona exam all go through.
 
 ## What the panel does
 
