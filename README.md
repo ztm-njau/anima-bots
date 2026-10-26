@@ -27,6 +27,22 @@ and Douyin.
 - **Honest.** She is openly an AI-driven character and never claims to be human when sincerely
   asked, which also matches China's labelling rules for AI-generated content.
 
+## Owner, relationships, 世界书, 表情包, plugins
+
+- **管理后台** at http://127.0.0.1:8765/console: people and 用户画像, friend requests, 世界书,
+  表情包, MCP plugins and every setting in one place ([docs/console.md](docs/console.md)).
+- **Owner commands** in chat (`/拉黑` `/静音` `/同意` `/删好友` `/画像` …), a blocklist, per-group
+  mute, and she can end a conversation herself when someone crosses a line.
+- **Friend requests and group invites** by rule: accept, accept people she knows or who know the
+  password, ask the owner, or ignore; she greets new friends.
+- **世界书** that imports SillyTavern world books and character cards; a card can become a new bot.
+- **表情包**: a starter pack drawn for her, stickers she collects from chats (tagged by vision), uploads.
+- **Memory**: image descriptions kept in history, associative recall of related facts and old
+  moments, a profile per person kept current.
+- **Plugins**: any MCP server (Claude Desktop config format) becomes her tools.
+- **She is a model too**: an OpenAI-compatible endpoint lets AstrBot, NoneBot, Koishi or SillyTavern
+  use her whole brain ([docs/integrations.md](docs/integrations.md)).
+
 ## Skills
 
 Tools she reaches for mid-conversation, in her own voice: remember / recall / nicknames /

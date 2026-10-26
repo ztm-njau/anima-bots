@@ -42,6 +42,15 @@ class RoutedLLM(LLMProvider):
     async def complete(self, *args: Any, **kwargs: Any) -> LLMResult:
         return await self._chain([self.side, *self.backups], "complete", *args, **kwargs)
 
+    async def see(self, image: Any, prompt: str) -> str:
+        for provider in [self.side, self.main, *self.backups]:
+            if provider.supports_vision:
+                try:
+                    return await provider.see(image, prompt)
+                except LLMError:
+                    continue
+        raise LLMError("no provider here can see images")
+
     def describe(self) -> dict[str, Any]:
         def one(p: LLMProvider, model: str) -> dict[str, str]:
             return {"provider": p.label, "id": getattr(p, "provider_id", ""), "model": model}

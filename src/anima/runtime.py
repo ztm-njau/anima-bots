@@ -102,6 +102,10 @@ class Runtime:
         self.adapters = self.build_adapters()
         for adapter in self.adapters.values():
             self.brain.attach(adapter)
+        from anima.plugins import PluginManager
+
+        self.plugins = PluginManager(self.brain)
+        self.brain.plugins = self.plugins
 
     def rebuild_llm(self) -> None:
         """Swap the brain's model in place after the provider panel changes something."""
@@ -120,6 +124,7 @@ class Runtime:
             except Exception:
                 logger.exception("Adapter {} failed to start", name)
         tasks.append(asyncio.create_task(self.life.run()))
+        tasks.append(asyncio.create_task(self.plugins.start()))
 
         server = None
         if WEB_PLATFORMS & set(self.adapters):
@@ -153,6 +158,8 @@ class Runtime:
         for adapter in self.adapters.values():
             with contextlib.suppress(Exception):
                 await adapter.stop()
+        with contextlib.suppress(Exception):
+            await self.plugins.stop()
         await self.brain.stop()
         for task in tasks:
             task.cancel()

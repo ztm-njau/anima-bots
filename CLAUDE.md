@@ -25,7 +25,11 @@ Anima is a Python engine for human-like social bots; each bot is a folder under 
   `fallbacks: "default"` behind the `server-side-fallback-2026-07-01` beta.
 - `anima eval` / the panel's 考考她 run `evals.py` scenarios on scratch memory; use them before and after prompt changes.
 - Platforms: `adapters/`. Only `send()` is required; capabilities (`typing`, `poke`, `voice`, ...) are optional.
-- Skills: `skills/` with the `@skill` decorator; bot-specific ones in `bots/<name>/skills/*.py`.
+- Skills: `skills/` with the `@skill` decorator; bot-specific ones in `bots/<name>/skills/*.py`; MCP servers in
+  `bots/<name>/mcp.json` register as skills via `plugins.py`.
+- Owner/relationships: `core/admin.py` (commands, gate, friend requests). 世界书: `core/lorebook.py` + `core/cards.py`
+  (SillyTavern import). 表情包: `core/memes.py`. Recall: `core/recall.py`. Console: `web/console.py` + `static/console.html`.
+  OpenAI-compatible endpoint for other frameworks: `web/openai_api.py`.
 
 ## Rules of the house
 

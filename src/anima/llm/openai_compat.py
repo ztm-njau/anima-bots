@@ -165,6 +165,18 @@ class OpenAICompatProvider(LLMProvider):
                            stop_reason=resp.choices[0].finish_reason or "")
         return self.priced(result)
 
+    async def see(self, image, prompt: str) -> str:
+        if not (self.vision and image.data):
+            raise LLMError(f"{self.label} can't see images")
+        resp = await self._create(
+            model=self.model, max_tokens=200, **self._kwargs(self.side_params),
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:{image.media_type};base64,{image.data}"}},
+                {"type": "text", "text": prompt},
+            ]}],
+        )
+        return _THINK.sub("", resp.choices[0].message.content or "").strip()
+
     async def list_models(self) -> list[str]:
         try:
             page = await self.client.models.list()

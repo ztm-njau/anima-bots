@@ -25,6 +25,8 @@ dependencies = [
     "wechatpy>=1.8",
     "cryptography>=42",
     "edge-tts>=6.1",
+    "mcp>=1.10",
+    "tomlkit>=0.13",
 ]
 
 [project.scripts]

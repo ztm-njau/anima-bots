@@ -21,7 +21,7 @@ html, body { margin: 0; height: 100%; }
 body {
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Segoe UI", sans-serif;
   color: var(--ink); background: radial-gradient(1200px 700px at 15% -10%, var(--bg2), transparent 60%), var(--bg);
-  transition: background .8s, color .4s; overflow: hidden;
+  overflow: hidden;
 }
 #stars { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s; }
 body.night #stars { opacity: 1; }
@@ -29,7 +29,7 @@ body.night #stars { opacity: 1; }
 @keyframes twinkle { 0%, 100% { opacity: .15 } 50% { opacity: .9 } }
 
 .app { position: relative; display: grid; grid-template-columns: minmax(360px, 520px) minmax(320px, 1fr); gap: 22px; height: 100%; padding: 22px; max-width: 1280px; margin: 0 auto; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 26px; box-shadow: var(--shadow); transition: background .8s, border-color .8s; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 26px; box-shadow: var(--shadow); }
 
 /* chat column */
 .chat { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -83,7 +83,7 @@ body.asleep .avatar svg { filter: grayscale(.4) brightness(.85); }
 .composer .line { display: flex; gap: 8px; align-items: flex-end; }
 textarea { flex: 1; resize: none; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 16px; padding: 10px 13px; font: inherit; max-height: 120px; outline: none; }
 textarea:focus { border-color: var(--cola); }
-.btn { border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 13px; padding: 8px 12px; font: inherit; font-size: 13.5px; cursor: pointer; white-space: nowrap; transition: transform .1s, background .2s; }
+.btn { border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 13px; padding: 8px 12px; font: inherit; font-size: 13.5px; cursor: pointer; white-space: nowrap; transition: transform .1s; }
 .btn:hover { background: var(--bg2); } .btn:active { transform: scale(.96); }
 .btn.primary { background: var(--cola); color: #fff; border-color: transparent; padding: 10px 16px; }
 .btn.primary:hover { background: #d42f32; }
@@ -140,6 +140,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
   .top { grid-template-columns: 1fr; } .controls { justify-items: start; } .controls .r { justify-content: flex-start; }
 }
 </style>
+<link rel="stylesheet" href="/static/theme.css?v=5">
 </head>
 <body>
 <div id="stars"></div>
@@ -148,7 +149,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
     <header class="chat-head">
       <div class="avatar" id="avatar">
         <svg viewBox="0 0 64 64" aria-hidden="true">
-          <defs><radialGradient id="g" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ff7a6b"/><stop offset="1" stop-color="#c81f2a"/></radialGradient></defs>
+          <defs><radialGradient id="g" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#c96a52"/><stop offset="1" stop-color="#9a3524"/></radialGradient></defs>
           <circle cx="32" cy="32" r="30" fill="url(#g)"/>
           <path d="M32 14l4.8 11 11.9 1.1-9 7.9 2.7 11.7L32 39.6l-10.4 6.1 2.7-11.7-9-7.9 11.9-1.1z" fill="#fff"/>
           <circle cx="48" cy="15" r="3" fill="#f2b544"/>
@@ -178,7 +179,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
     <div class="card top">
       <div class="clock" id="clock">--:--<small id="date">北京时间</small></div>
       <div class="controls">
-        <div class="r"><a class="badge" id="model" href="/providers" title="模型提供商">…</a><span class="badge" id="cost">0</span></div>
+        <div class="r"><a class="badge" href="/console">管理后台</a><a class="badge" id="model" href="/providers" title="模型提供商">…</a><span class="badge" id="cost">0</span></div>
         <div class="r">
           <label style="font-size:12.5px;color:var(--ink2)">时间旅行 <b id="offLabel">±0h</b></label>
           <input type="range" id="offset" min="-12" max="24" step="0.5" value="0">
@@ -262,6 +263,8 @@ function handle(m) {
 function applyState(st) {
   S.state = st;
   document.body.classList.toggle("night", st.night);
+  document.documentElement.classList.toggle("night", st.night);  // her Beijing clock, not the OS, sets day/night
+  document.documentElement.classList.toggle("day", !st.night);
   document.body.classList.toggle("asleep", st.life.availability === "asleep");
   $("herName").textContent = st.name;
   $("clock").innerHTML = `${st.time}<small>${st.date.split(" ").slice(0, 2).join(" ")} · 北京时间${st.part}</small>`;
@@ -271,11 +274,12 @@ function applyState(st) {
   $("moodLabel").textContent = st.mood.label;
   $("moodText").textContent = `精力 ${Math.round(st.life.energy * 100)}% · ${st.mood.text}`;
   const v = st.mood.valence, a = st.mood.arousal;
-  const hue = v >= 0 ? (280 + v * 105) % 360 : 280 + v * 60, sat = 45 + a * 45;
-  $("orb").style.background = `radial-gradient(circle at 35% 30%, hsl(${hue} ${sat}% 78%), hsl(${hue} ${sat}% 52%) 60%, hsl(${(hue + 25) % 360} ${sat}% 34%))`;
-  $("orb").style.boxShadow = `0 0 ${20 + a * 40}px hsl(${hue} ${sat}% 60% / .55)`;
+  // ink-wash orb: slate when low, 青绿 when calm, vermilion warmth when happy
+  const hue = v >= 0 ? 165 - v * 150 : 165 + -v * 45, sat = 22 + a * 30;
+  $("orb").style.background = `radial-gradient(circle at 36% 30%, hsl(${hue} ${sat}% 88%), hsl(${hue} ${sat}% 62%) 58%, hsl(${hue} ${sat + 6}% 38%))`;
+  $("orb").style.boxShadow = `0 18px 40px -18px hsl(${hue} ${sat}% 30% / .55)`;
   $("orb").style.animationDuration = (4.2 - a * 2.6).toFixed(2) + "s";
-  $("model").textContent = st.llm.demo ? `⚙︎ 演示模式 · ${st.llm.note || "还没接上模型"} → 去接入` : `⚙︎ ${st.llm.provider} · ${st.llm.model}`;
+  $("model").textContent = st.llm.demo ? `演示模式 · ${st.llm.note || "还没接上模型"} → 去接入` : `${st.llm.provider} · ${st.llm.model}`;
   $("model").classList.toggle("warn", st.llm.demo);
   $("cost").textContent = `本次运行 ${st.cost}`;
   $("offset").value = st.offset_hours; $("offLabel").textContent = (st.offset_hours > 0 ? "+" : st.offset_hours < 0 ? "" : "±") + st.offset_hours + "h";
@@ -291,9 +295,10 @@ function applyState(st) {
 }
 
 function segHtml(segs) {
+  if (segs.length && segs.every((s) => s.type === "image")) return { cls: "sticker", html: segs.map((s) => `<img src="${esc(s.value)}" style="max-width:140px;border-radius:10px">`).join("") };
   const onlySticker = segs.length && segs.every((s) => s.type === "sticker");
   if (onlySticker) return { cls: "sticker", html: segs.map((s) => esc(s.value)).join("") };
-  return { cls: "", html: segs.map((s) => s.type === "sticker" ? `<span class="stk">${esc(s.value)}</span>` : esc(s.value)).join("") };
+  return { cls: "", html: segs.map((s) => s.type === "sticker" ? `<span class="stk">${esc(s.value)}</span>` : s.type === "image" ? `<img src="${esc(s.value)}">` : esc(s.value)).join("") };
 }
 
 function render() {

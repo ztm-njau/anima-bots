@@ -35,6 +35,7 @@ PROTOCOL = """\
 - 不用 markdown、不用列表符号、不加引号，也不要在开头写自己的名字。
 - 下面这些标记可以插在消息里，只在真的合适时用，大多数消息一个都不需要：
   [sticker:名字] 发一个表情。可用的有：{stickers}
+  [meme:关键词] 发一张表情包图片（单独一行，比 [sticker] 更有梗，偶尔用）。你有哪些表情包，背景信息里会列出来
   [poke] 戳一戳对方（QQ 才有，被戳了可以戳回去）
   [reply] 引用回复对方那条消息（群里人多、要指明在回谁时用）
   [voice]要说的话[/voice] 发一条语音，单独一行。偶尔用，适合撒娇、晚安、唱一句，十几个字以内
@@ -64,6 +65,7 @@ class PersonCard:
     relation: str
     facts: list[str] = field(default_factory=list)
     note: str = ""
+    profile: str = ""
 
     @classmethod
     def build(cls, user: User | None, fallback_name: str, facts: list[Fact], now_ts: float, today_mmdd: str) -> PersonCard:
@@ -82,7 +84,7 @@ class PersonCard:
         else:
             relation = f"认识 {days} 天，{closeness}"
         note = "今天是 TA 的生日！" if user.birthday and user.birthday == today_mmdd else ""
-        return cls(user.name, user.call_name, relation, [f.content for f in facts], note)
+        return cls(user.name, user.call_name, relation, [f.content for f in facts], note, user.profile)
 
 
 @dataclass
@@ -99,6 +101,10 @@ class Scene:
     last_self_ago: str | None = None
     notes: list[str] = field(default_factory=list)
     instruction: str | None = None
+    lore: list[str] = field(default_factory=list)
+    recalled: list[str] = field(default_factory=list)
+    moments: list[str] = field(default_factory=list)
+    meme_tags: list[str] = field(default_factory=list)
 
 
 class PromptBuilder:
@@ -165,9 +171,16 @@ class PromptBuilder:
                 called = f"（你叫 TA「{p.call_name}」）" if p.call_name != p.name else ""
                 facts = f" 记得：{'；'.join(p.facts)}" if p.facts else ""
                 note = f" {p.note}" if p.note else ""
-                lines.append(f"- {p.name}{called}：{p.relation}。{facts}{note}")
+                profile = f" 印象：{p.profile}" if p.profile else ""
+                lines.append(f"- {p.name}{called}：{p.relation}。{profile}{facts}{note}")
         if scene.chat_facts:
             lines += ["", "[关于这里]"] + [f"- {f}" for f in scene.chat_facts]
+        if scene.lore:
+            lines += ["", "[世界书：和这段话有关的设定，自然地用，别照念]"] + [f"- {x}" for x in scene.lore]
+        if scene.recalled or scene.moments:
+            lines += ["", "[你隐约想起来的]"] + [f"- {x}" for x in scene.recalled] + [f"- 以前聊过：{x}" for x in scene.moments]
+        if scene.meme_tags:
+            lines += ["", f"[你的表情包] 用 [meme:关键词] 发，现有：{' '.join(scene.meme_tags)}"]
         if scene.self_facts:
             lines += ["", "[你以前说过的关于自己的事，保持一致]"] + [f"- {f}" for f in scene.self_facts]
         notes = list(scene.notes)

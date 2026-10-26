@@ -1,0 +1,49 @@
+/* 山水: one quiet palette for every Anima page. Rice paper and ink by day, river at night;
+   青绿 for calm states, a single seal-red for the action that matters. Loaded after each page's own
+   styles, so these tokens win. */
+:root {
+  --bg: #f2ede2; --bg2: #e8e1d1; --panel: rgba(251, 248, 241, .88); --panel2: rgba(243, 238, 228, .9);
+  --ink: #232e2c; --ink2: #56645f; --ink3: #939d97; --line: #dbd3c2;
+  --cola: #b0402c; --cola2: #c35c46; --gold: #a88a52; --ok: #4f8273; --mint: #4f8273; --sky: #5a7686; --bad: #a8402e;
+  --her: #fbf8f1; --her-ink: #232e2c;
+  --shadow: 0 22px 48px -36px rgba(35, 46, 44, .55);
+  --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.day) {
+    --bg: #0e1416; --bg2: #121b1e; --panel: rgba(20, 29, 32, .86); --panel2: rgba(27, 38, 42, .9);
+    --ink: #e6e2d6; --ink2: #a6b0aa; --ink3: #6c7a75; --line: #25343a;
+    --her: #1a2528; --her-ink: #e6e2d6; --cola: #c35c46; --cola2: #d27461;
+    --shadow: 0 24px 56px -32px rgba(0, 0, 0, .8);
+  }
+}
+html.night, body.night {
+  --bg: #0e1416; --bg2: #121b1e; --panel: rgba(20, 29, 32, .86); --panel2: rgba(27, 38, 42, .9);
+  --ink: #e6e2d6; --ink2: #a6b0aa; --ink3: #6c7a75; --line: #25343a;
+  --her: #1a2528; --her-ink: #e6e2d6; --cola: #c35c46; --cola2: #d27461;
+  --shadow: 0 24px 56px -32px rgba(0, 0, 0, .8);
+}
+
+/* The landscape is part of the page background itself: nothing to stack, nothing to cover. */
+html {
+  --land: url("/static/landscape.svg");
+  min-height: 100%;
+  background: var(--land) center bottom / cover no-repeat fixed, linear-gradient(180deg, var(--bg2) 0%, var(--bg) 46%) fixed, var(--bg);
+  background-size: 100% 42vh, auto, auto;
+}
+@media (prefers-color-scheme: dark) { :root:not(.day) { --land: url("/static/landscape-night.svg"); } }
+html.night { --land: url("/static/landscape-night.svg"); }
+body { background: transparent !important; color: var(--ink); }
+#stars { display: none !important; }
+
+h1, h2, h3, .clock, .brand, .who b, .facts h3, .score { font-family: var(--serif); letter-spacing: .04em; }
+h1 { font-weight: 600; }
+
+.card { border-radius: 18px; }
+button.primary, .btn.primary { background: var(--cola); letter-spacing: .08em; }
+button.primary:hover, .btn.primary:hover { background: var(--cola2); }
+.row.me .bubble { background: var(--cola) !important; }
+.tag.use, .tag.run { background: var(--ok); }
+.pill b, .avatar .zzz { color: var(--cola); }
+::selection { background: color-mix(in srgb, var(--ok) 30%, transparent); }
+a { text-underline-offset: 3px; }

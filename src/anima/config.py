@@ -67,6 +67,11 @@ class BehaviorConfig(BaseModel):
     delays: bool = True
     history_limit: int = 40
     interests: list[str] = []
+    caption_images: bool = True  # describe images once and keep the description in memory
+    collect_stickers: float = 0.5  # chance she saves a sticker someone sent (0 = never)
+    sticker_cap: int = 600
+    lore_budget: int = 1800  # characters of 世界书 per turn
+    recall: bool = True  # bring up related old facts and moments
 
 
 class LifeConfig(BaseModel):
@@ -96,6 +101,7 @@ class PlatformConfig(BaseModel):
 
 
 class BotConfig(BaseModel):
+    owners: list[str] = []  # user keys like "qq:123456" who may use / commands
     identity: IdentityConfig = IdentityConfig()
     llm: LLMConfig = LLMConfig()
     behavior: BehaviorConfig = BehaviorConfig()

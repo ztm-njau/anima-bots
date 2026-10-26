@@ -100,10 +100,18 @@ def create_app(runtime: Runtime) -> FastAPI:
     @app.middleware("http")
     async def local_only(request: Request, call_next):
         path = request.url.path
-        guarded = path.startswith("/api/") or path in ("/", "/providers") or path.startswith("/voice/")
+        guarded = (path.startswith(("/api/", "/voice/", "/sticker/")) or path in ("/", "/providers", "/console"))
         if guarded and not is_local(request.headers.get("host"), request.headers.get("origin")):
             return JSONResponse({"error": "only available from this computer"}, status_code=403)
         return await call_next(request)
+
+    @app.get("/static/{name}")
+    async def static_file(name: str):
+        path = STATIC / Path(name).name
+        types = {".css": "text/css", ".svg": "image/svg+xml"}
+        if path.suffix in types and path.exists():
+            return FileResponse(path, media_type=types[path.suffix], headers={"Cache-Control": "no-cache"})
+        return JSONResponse({}, status_code=404)
 
     @app.get("/health")
     async def health() -> JSONResponse:
@@ -116,9 +124,18 @@ def create_app(runtime: Runtime) -> FastAPI:
     if playground is None:
         return app
 
+    from anima.web.console import console_router, sticker_route
+    from anima.web.openai_api import openai_router
     from anima.web.providers import provider_router
 
     app.include_router(provider_router(runtime))
+    app.include_router(console_router(runtime))
+    app.include_router(openai_router(runtime, is_local))
+    app.add_api_route("/sticker/{sticker_id:path}", sticker_route(runtime), methods=["GET"])
+
+    @app.get("/console")
+    async def console_page() -> HTMLResponse:
+        return HTMLResponse((STATIC / "console.html").read_text(encoding="utf-8"))
 
     @app.get("/")
     async def index() -> HTMLResponse:

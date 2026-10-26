@@ -2,6 +2,7 @@
 # Behaviour lives here. Her soul lives in persona.md / examples.md. Secrets live in ../../.env.
 
 skills = ["*"]                      # every built-in skill; e.g. ["*", "-weather"] to drop one
+owners = []                         # who may manage her with / commands, e.g. ["qq:123456"]
 
 [identity]
 name = "{{name}}"
@@ -38,6 +39,9 @@ debounce_group = 4.0
 typing_cps = 6.0                    # phone typing speed, characters per second
 delays = true                       # false = instant replies (debugging only)
 history_limit = 40
+caption_images = true               # describe images once and remember what they showed
+collect_stickers = 0.5              # chance she saves a sticker someone sends (0 = never)
+recall = true                       # bring up related old facts and moments
 
 [life]
 daily_plan = true
@@ -65,7 +69,9 @@ url = "ws://127.0.0.1:3001"
 token_env = "ONEBOT_TOKEN"
 groups = []                         # group numbers she may speak in; empty = none
 listen_groups = []                  # groups where she only listens
-accept_friend_requests = false
+friend_requests = "smart"           # accept | smart (known people / with keyword; else ask owner) | owner | ignore
+group_invites = "owner"
+friend_keywords = []                # words in a request's note that get an automatic yes
 input_status = true                 # show "对方正在输入..." in DMs
 
 [platforms.bilibili]                # see docs/platforms/bilibili.md

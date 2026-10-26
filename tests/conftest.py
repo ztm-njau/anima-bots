@@ -40,6 +40,12 @@ class Recorder(Adapter):
         self.reads += 1
 
 
+@pytest.fixture(autouse=True)
+def scratch_data(tmp_path, monkeypatch):
+    """No test writes into the real data/ folder."""
+    monkeypatch.setattr("anima.config.DATA_DIR", tmp_path / "data")
+
+
 @pytest.fixture
 def bot():
     return load_bot("claudette")

@@ -22,7 +22,7 @@ GROUP = Chat("playground", "group", "lab", "可乐的测试群")
 
 class PlaygroundAdapter(Adapter):
     platform = "playground"
-    capabilities = frozenset({"typing", "poke", "voice", "quote", "read"})
+    capabilities = frozenset({"typing", "poke", "voice", "quote", "read", "image"})
 
     def __init__(self) -> None:
         super().__init__()
@@ -69,6 +69,8 @@ class PlaygroundAdapter(Adapter):
                 out.append({"type": "text", "value": seg.value})
             elif seg.type == "sticker":
                 out.append({"type": "sticker", "value": self.brain.stickers.emoji(seg.value), "key": seg.value})
+            elif seg.type == "image":
+                out.append({"type": "image", "value": f"/sticker/{seg.value}"})
             else:
                 out.append({"type": "text", "value": f"[表情包:{seg.value}]"})
         return out

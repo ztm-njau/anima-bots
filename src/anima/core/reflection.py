@@ -26,6 +26,7 @@ REFLECT_SYSTEM = """\
 - nicknames：明确约定好的、她以后对某人的称呼。
 - birthdays：明确提到的生日，MM-DD。
 - treasures：别人说的特别美、特别好笑或特别戳人的一句话，原文摘录。没有就留空。
+- profiles：对这段对话里说过话的人，写一两句"用户画像"：TA 是个怎样的人、你们的关系、和 TA 聊天要注意什么。在下面给出的已有画像基础上更新，没有新认识就不写。
 宁缺毋滥，没有就给空数组。"""
 
 REFLECT_SCHEMA = {
@@ -72,6 +73,15 @@ REFLECT_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "profiles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"user_id": {"type": "string"}, "profile": {"type": "string"}},
+                "required": ["user_id", "profile"],
+                "additionalProperties": False,
+            },
+        },
         "treasures": {
             "type": "array",
             "items": {
@@ -82,7 +92,7 @@ REFLECT_SCHEMA = {
             },
         },
     },
-    "required": ["facts", "self_facts", "affinity", "nicknames", "birthdays", "treasures"],
+    "required": ["facts", "self_facts", "affinity", "nicknames", "birthdays", "profiles", "treasures"],
     "additionalProperties": False,
 }
 
@@ -99,6 +109,13 @@ async def reflect(brain: Brain, chat: Chat) -> dict | None:
         for m in messages
     )
     system = REFLECT_SYSTEM.format(name=brain.cfg.identity.display_name)
+    known = []
+    for key in names:
+        user = await brain.memory.get_user(key)
+        if user and user.profile:
+            known.append(f"[{key}] {user.profile}")
+    if known:
+        transcript = "已有画像：\n" + "\n".join(known) + "\n\n聊天记录：\n" + transcript
     try:
         result = await brain.llm.complete(system, transcript, schema=REFLECT_SCHEMA)
         data = json.loads(result.text)
@@ -125,6 +142,9 @@ async def reflect(brain: Brain, chat: Chat) -> dict | None:
     for item in data.get("birthdays", []):
         if item.get("user_id") in names and len(item.get("date", "")) == 5:
             await brain.memory.update_user(item["user_id"], birthday=item["date"])
+    for item in data.get("profiles", []):
+        if item.get("user_id") in names and item.get("profile"):
+            await brain.memory.update_user(item["user_id"], profile=item["profile"][:300])
     for item in data.get("treasures", []):
         if item.get("text"):
             await brain.memory.add_treasure(item["text"], item.get("user_id", ""), names.get(item.get("user_id", ""), ""))

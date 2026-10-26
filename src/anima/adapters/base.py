@@ -43,6 +43,16 @@ class Adapter(ABC):
     async def mark_read(self, chat: Chat, ev: Incoming) -> None:
         pass
 
+    async def answer_request(self, request: dict, approve: bool) -> bool:
+        """Accept or refuse a friend request / group invite. Optional."""
+        return False
+
+    async def remove_friend(self, user_id: str) -> bool:
+        return False
+
+    async def leave_group(self, group_id: str) -> bool:
+        return False
+
     async def post(self, text: str) -> str | None:
         """Publish to the bot's own feed (e.g. a Bilibili dynamic). Optional."""
         return None

@@ -278,7 +278,7 @@ def napcat_up() -> None:
     if not (NAPCAT_DIR / "runtime" / "config" / "onebot11.json").exists():
         napcat_init()
     if _compose("up", "-d") == 0:
-        console.print(f"WebUI：[bold]http://127.0.0.1:6099/webui?token={env('NAPCAT_WEBUI_TOKEN')}[/]\n"
+        console.print(f"WebUI：[bold]http://127.0.0.1:6100/webui?token={env('NAPCAT_WEBUI_TOKEN')}[/]\n"
                       "用可乐的 QQ 小号扫码登录；也可以 [bold]uv run anima napcat qr[/] 直接打开二维码。")
 
 

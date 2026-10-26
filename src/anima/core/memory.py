@@ -84,7 +84,42 @@ CREATE TABLE IF NOT EXISTS state (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS requests (   -- friend requests and group invites
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform   TEXT NOT NULL,
+    kind       TEXT NOT NULL,            -- friend | group
+    user_id    TEXT NOT NULL,
+    user_name  TEXT NOT NULL DEFAULT '',
+    group_id   TEXT,
+    comment    TEXT NOT NULL DEFAULT '',
+    flag       TEXT NOT NULL,
+    sub_type   TEXT NOT NULL DEFAULT '',
+    status     TEXT NOT NULL DEFAULT 'pending',  -- pending | approved | rejected
+    note       TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    decided_at REAL
+);
+CREATE TABLE IF NOT EXISTS stickers (   -- her sticker (表情包) collection
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    file       TEXT NOT NULL,
+    sha        TEXT NOT NULL UNIQUE,
+    tags       TEXT NOT NULL DEFAULT '',  -- space separated
+    description TEXT NOT NULL DEFAULT '',
+    source     TEXT NOT NULL DEFAULT '',
+    uses       INTEGER NOT NULL DEFAULT 0,
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    created_at REAL NOT NULL
+);
 """
+
+# Columns added after the first release; open() adds them to older databases.
+MIGRATIONS = [
+    ("users", "profile", "TEXT NOT NULL DEFAULT ''"),
+    ("users", "blocked", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "silenced_until", "REAL NOT NULL DEFAULT 0"),
+    ("users", "notes", "TEXT NOT NULL DEFAULT ''"),
+    ("chats", "muted", "INTEGER NOT NULL DEFAULT 0"),
+]
 
 _PUNCT = re.compile(r"[\s\W_]+", re.UNICODE)
 
@@ -116,10 +151,17 @@ class User:
     first_seen: float
     last_seen: float
     msg_count: int
+    profile: str = ""  # 用户画像: who they are and how to treat them
+    blocked: int = 0
+    silenced_until: float = 0.0  # she stopped talking to them until then
+    notes: str = ""  # the owner's private notes
 
     @property
     def call_name(self) -> str:
         return self.nickname or self.name
+
+    def to_dict(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in self.__dataclass_fields__} | {"call_name": self.call_name}
 
 
 @dataclass
@@ -153,6 +195,10 @@ class Memory:
         self.db.row_factory = aiosqlite.Row
         await self.db.execute("PRAGMA journal_mode=WAL")
         await self.db.executescript(SCHEMA)
+        for table, column, ddl in MIGRATIONS:
+            async with self.db.execute(f"PRAGMA table_info({table})") as cur:
+                if column not in {row[1] for row in await cur.fetchall()}:
+                    await self.db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
         await self.db.commit()
         return self
 
@@ -196,7 +242,7 @@ class Memory:
             return [User(**dict(r)) for r in await cur.fetchall()]
 
     async def update_user(self, key: str, **fields: Any) -> None:
-        allowed = {"nickname", "birthday", "name"}
+        allowed = {"nickname", "birthday", "name", "profile", "blocked", "silenced_until", "notes", "affinity"}
         sets = {k: v for k, v in fields.items() if k in allowed}
         if not sets:
             return
@@ -412,6 +458,107 @@ class Memory:
             "SELECT user_name, text, created_at FROM treasures ORDER BY id DESC LIMIT ?", (limit,)
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+    # ------------------------------------------------------------ people (admin)
+
+    async def users(self, query: str = "", limit: int = 200) -> list[User]:
+        async with self.conn.execute(
+            "SELECT * FROM users WHERE name LIKE ? OR nickname LIKE ? OR uid LIKE ? ORDER BY last_seen DESC LIMIT ?",
+            (f"%{query}%", f"%{query}%", f"%{query}%", limit),
+        ) as cur:
+            return [User(**dict(r)) for r in await cur.fetchall()]
+
+    async def delete_user_memories(self, key: str) -> None:
+        await self.conn.execute("DELETE FROM facts WHERE subject = ?", (key,))
+        await self.conn.execute("UPDATE users SET profile = '', nickname = NULL, birthday = NULL WHERE key = ?", (key,))
+        await self.conn.commit()
+
+    async def update_message(self, row_id: int, text: str) -> None:
+        await self.conn.execute("UPDATE messages SET text = ? WHERE id = ?", (text, row_id))
+        await self.conn.commit()
+
+    async def set_chat_muted(self, chat_key: str, muted: bool) -> None:
+        platform, kind, _ = (chat_key.split(":", 2) + ["", ""])[:3]
+        await self.conn.execute(
+            """INSERT INTO chats (key, platform, kind, muted) VALUES (?, ?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET muted = excluded.muted""",
+            (chat_key, platform, kind, int(muted)),
+        )
+        await self.conn.commit()
+
+    async def all_facts(self, limit: int = 3000) -> list[Fact]:
+        async with self.conn.execute(
+            "SELECT id, subject, content, importance, created_at FROM facts ORDER BY id DESC LIMIT ?", (limit,)
+        ) as cur:
+            return [Fact(**dict(r)) for r in await cur.fetchall()]
+
+    async def older_messages(self, chat_key: str, before_id: int, limit: int = 2000) -> list[MessageRow]:
+        async with self.conn.execute(
+            "SELECT * FROM messages WHERE chat_key = ? AND id < ? ORDER BY id DESC LIMIT ?", (chat_key, before_id, limit)
+        ) as cur:
+            return [self._msg(r) for r in await cur.fetchall()]
+
+    # ------------------------------------------------------------ friend requests / invites
+
+    async def add_request(self, platform: str, kind: str, user_id: str, flag: str, *, user_name: str = "",
+                          group_id: str | None = None, comment: str = "", sub_type: str = "") -> int:
+        cur = await self.conn.execute(
+            """INSERT INTO requests (platform, kind, user_id, user_name, group_id, comment, flag, sub_type, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (platform, kind, user_id, user_name, group_id, comment, flag, sub_type, time.time()),
+        )
+        await self.conn.commit()
+        return int(cur.lastrowid or 0)
+
+    async def requests(self, status: str | None = "pending", limit: int = 100) -> list[dict[str, Any]]:
+        query, args = "SELECT * FROM requests", ()
+        if status:
+            query, args = query + " WHERE status = ?", (status,)
+        async with self.conn.execute(query + " ORDER BY id DESC LIMIT ?", (*args, limit)) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def request(self, request_id: int) -> dict[str, Any] | None:
+        async with self.conn.execute("SELECT * FROM requests WHERE id = ?", (request_id,)) as cur:
+            row = await cur.fetchone()
+        return dict(row) if row else None
+
+    async def decide_request(self, request_id: int, status: str, note: str = "") -> None:
+        await self.conn.execute(
+            "UPDATE requests SET status = ?, note = ?, decided_at = ? WHERE id = ?", (status, note, time.time(), request_id)
+        )
+        await self.conn.commit()
+
+    # ------------------------------------------------------------ stickers
+
+    async def add_sticker(self, file: str, sha: str, tags: str, description: str = "", source: str = "") -> int | None:
+        try:
+            cur = await self.conn.execute(
+                "INSERT INTO stickers (file, sha, tags, description, source, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (file, sha, tags, description, source, time.time()),
+            )
+        except aiosqlite.IntegrityError:
+            return None
+        await self.conn.commit()
+        return int(cur.lastrowid or 0)
+
+    async def stickers(self, enabled_only: bool = True) -> list[dict[str, Any]]:
+        query = "SELECT * FROM stickers" + (" WHERE enabled = 1" if enabled_only else "") + " ORDER BY id DESC"
+        async with self.conn.execute(query) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def update_sticker(self, sticker_id: int, **fields: Any) -> None:
+        sets = {k: v for k, v in fields.items() if k in {"tags", "description", "enabled", "uses"}}
+        if sets:
+            cols = ", ".join(f"{k} = ?" for k in sets)
+            await self.conn.execute(f"UPDATE stickers SET {cols} WHERE id = ?", (*sets.values(), sticker_id))
+            await self.conn.commit()
+
+    async def delete_sticker(self, sticker_id: int) -> dict[str, Any] | None:
+        async with self.conn.execute("SELECT * FROM stickers WHERE id = ?", (sticker_id,)) as cur:
+            row = await cur.fetchone()
+        await self.conn.execute("DELETE FROM stickers WHERE id = ?", (sticker_id,))
+        await self.conn.commit()
+        return dict(row) if row else None
 
     # ------------------------------------------------------------ key/value state
 

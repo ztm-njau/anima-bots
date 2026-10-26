@@ -80,8 +80,12 @@ async def test_detects_env_keys_and_claude_code_style_setups(store, monkeypatch)
 
 
 def test_routing_falls_back_to_demo_without_a_key(bot, store):
+    bot.config.llm.backup = None
     llm = make_provider(bot, store=store)
     assert isinstance(llm, FakeLLM) and "DeepSeek" in llm.note
+    bot.config.llm.backup = "ollama:qwen2.5:1.5b"  # a key-less local backup stands in instead of demo mode
+    stand_in = make_provider(bot, store=store)
+    assert isinstance(stand_in, RoutedLLM) and stand_in.main.label.startswith("Ollama") and "先用备用" in stand_in.label
     store.upsert({"preset": "deepseek", "api_key": "sk-test-key-0000"})
     llm = make_provider(bot, store=store)
     assert isinstance(llm, RoutedLLM)
@@ -195,6 +199,7 @@ async def test_panel_api_end_to_end(tmp_path, monkeypatch, store):
     monkeypatch.setattr("anima.config.DATA_DIR", tmp_path / "data")
     runtime = Runtime("claudette", platforms=["playground"])
     monkeypatch.setattr(runtime, "bot", load_bot("claudette"))
+    runtime.bot.config.llm.backup = None
     await runtime.setup()
     try:
         app = create_app(runtime)

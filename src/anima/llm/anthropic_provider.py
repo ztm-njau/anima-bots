@@ -192,6 +192,17 @@ class AnthropicProvider(LLMProvider):
             stop_reason=resp.stop_reason or "",
         ))
 
+    async def see(self, image, prompt: str) -> str:
+        if not (self.vision and (image.data or image.url)):
+            raise LLMError("Claude: no image data")
+        source = ({"type": "base64", "media_type": image.media_type, "data": image.data} if image.data
+                  else {"type": "url", "url": image.url})
+        resp = await self._create(
+            self.side_model, max_tokens=400, output_config={"effort": "low"},
+            messages=[{"role": "user", "content": [{"type": "image", "source": source}, {"type": "text", "text": prompt}]}],
+        )
+        return "".join(b.text for b in resp.content if b.type == "text").strip()
+
     async def list_models(self) -> list[str]:
         try:
             return sorted([m.id async for m in self.client.models.list()])

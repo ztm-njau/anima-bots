@@ -65,7 +65,7 @@ class Incoming:
     def render(self) -> str:
         """How this event reads in the conversation transcript."""
         body = self.text.strip()
-        if self.images and "[图片]" not in body:
+        if self.images and "[图片" not in body and "[表情包" not in body:
             body = (body + " [图片]").strip()
         if self.kind == "poke":
             body = "（戳了戳你）"
@@ -83,8 +83,9 @@ class Incoming:
 class Segment:
     """One piece of a chat bubble."""
 
-    type: Literal["text", "sticker", "meme"]
+    type: Literal["text", "sticker", "meme", "image"]
     value: str
+    path: str = ""  # image file, for "image" segments (a resolved meme)
 
 
 @dataclass

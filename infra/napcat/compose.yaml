@@ -12,7 +12,7 @@ services:
       WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:?run `uv run anima napcat init` first}
       MODE: ws
     ports:
-      - "127.0.0.1:6099:6099"   # WebUI: scan the login QR code here
+      - "127.0.0.1:6100:6099"   # WebUI on 6100 (6099 is often taken by another NapCat)
       - "127.0.0.1:3001:3001"   # OneBot v11 forward WebSocket, the bot connects here
     volumes:
       - ./runtime/qq:/app/.config/QQ

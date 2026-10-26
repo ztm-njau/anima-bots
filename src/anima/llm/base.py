@@ -111,6 +111,10 @@ class LLMProvider(ABC):
     ) -> LLMResult:
         """One reply, running the tool loop until the model is done talking."""
 
+    async def see(self, image: Image, prompt: str) -> str:
+        """A short description of an image (vision models only)."""
+        raise LLMError(f"{self.label} can't see images")
+
     @abstractmethod
     async def complete(self, system: str, prompt: str, *, schema: dict | None = None, max_tokens: int = 3000) -> LLMResult:
         """A side task (diary, reflection, daily plan). With ``schema``, the text is JSON."""

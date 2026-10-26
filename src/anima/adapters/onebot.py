@@ -16,6 +16,7 @@ import random
 import re
 import uuid
 from collections import deque
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -47,7 +48,10 @@ class OneBotConfig(BaseModel):
     token_env: str = "ONEBOT_TOKEN"
     groups: list[str | int] = []
     listen_groups: list[str | int] = []
-    accept_friend_requests: bool = False
+    accept_friend_requests: bool = False  # legacy switch; friend_requests is the rule now
+    friend_requests: str = "smart"  # accept | smart | owner | ignore
+    group_invites: str = "owner"
+    friend_keywords: list[str] = []
     input_status: bool = True
     download_images: bool = True
 
@@ -66,6 +70,8 @@ class OneBotAdapter(Adapter):
         self.nickname = ""
         self._pending: dict[str, asyncio.Future] = {}
         self._sent_ids: deque[str] = deque(maxlen=500)
+        self._ats: list[str] = []
+        self._sticker = False
         self._task: asyncio.Task | None = None
         self.connected = asyncio.Event()
 
@@ -184,11 +190,14 @@ class OneBotAdapter(Adapter):
             listen_only = False
             chat = Chat(self.platform, "private", user_id, name)
 
+        self._ats, self._sticker = [], False
         text, images, mentions_me, reply_to = await self._parse_segments(data.get("message"), self_id)
         if not text and not images:
             return
+        ats, sticker = self._ats, self._sticker
         reply_to_me = bool(reply_to and reply_to in self._sent_ids)
-        if images and self.cfg.download_images and (chat.kind == "private" or mentions_me):
+        collect = sticker and self.brain is not None and random.random() < self.brain.cfg.behavior.collect_stickers
+        if images and self.cfg.download_images and (chat.kind == "private" or mentions_me or collect):
             await self._download(images)
         ev = Incoming(
             chat=chat,
@@ -198,7 +207,7 @@ class OneBotAdapter(Adapter):
             mentions_me=mentions_me,
             reply_to_me=reply_to_me,
             images=images,
-            meta={"listen_only": listen_only},
+            meta={"listen_only": listen_only, "at": ats, "sticker": sticker},
         )
         assert self.brain is not None
         await self.brain.handle(ev)
@@ -222,16 +231,22 @@ class OneBotAdapter(Adapter):
                 elif qq == "all":
                     parts.append("@全体成员 ")
                 else:
+                    self._ats.append(qq)
                     parts.append(f"@{d.get('name') or qq} ")
             elif kind == "reply":
                 reply_to = str(d.get("id", ""))
             elif kind == "face":
                 parts.append(f"[{QQ_FACE_NAMES.get(str(d.get('id')), '表情')}]")
             elif kind in ("mface", "marketface"):
-                parts.append(f"[{d.get('summary') or '表情包'}]")
+                self._sticker = True
+                if d.get("url"):
+                    images.append(Image(url=d["url"]))
+                parts.append(f"[表情包：{d['summary'].strip('[]')}]" if d.get("summary") else "[表情包]")
             elif kind == "image":
                 images.append(Image(url=d.get("url") or d.get("file")))
-                parts.append("[表情包]" if str(d.get("sub_type")) == "1" else "[图片]")
+                is_sticker = str(d.get("sub_type")) == "1" or bool(d.get("summary"))
+                self._sticker = self._sticker or is_sticker
+                parts.append("[表情包]" if is_sticker else "[图片]")
             elif kind == "record":
                 parts.append("[语音]")
             elif kind == "video":
@@ -295,10 +310,51 @@ class OneBotAdapter(Adapter):
             await self.brain.handle(Incoming(chat, Sender(user_id, name), "", kind="poke", mentions_me=True))
 
     async def _on_request(self, data: dict[str, Any]) -> None:
-        if data.get("request_type") == "friend" and self.cfg.accept_friend_requests:
-            await asyncio.sleep(random.uniform(20, 120))  # nobody accepts friend requests instantly
-            await self._soft("set_friend_add_request", flag=data.get("flag"), approve=True)
-            logger.info("[{}] accepted friend request from {}", self.platform, data.get("user_id"))
+        """Friend requests and group invites go to her owner-configured rules (core/admin.py)."""
+        assert self.brain is not None
+        kind = data.get("request_type")
+        if kind == "group" and data.get("sub_type") != "invite":
+            return  # someone asking to join a group she manages: not her call
+        if kind not in ("friend", "group"):
+            return
+        user_id = str(data.get("user_id"))
+        name = await self._name_of(user_id)
+        await self.brain.admin.on_request(
+            self.platform, kind, user_id, str(data.get("flag")), user_name=name,
+            group_id=str(data["group_id"]) if data.get("group_id") else None,
+            comment=str(data.get("comment") or ""), sub_type=str(data.get("sub_type") or ""),
+        )
+
+    async def answer_request(self, request: dict, approve: bool) -> bool:
+        try:
+            if request["kind"] == "friend":
+                await self.call("set_friend_add_request", flag=request["flag"], approve=approve)
+            else:
+                await self.call("set_group_add_request", flag=request["flag"], sub_type=request["sub_type"] or "invite",
+                                approve=approve)
+        except Exception as exc:
+            logger.warning("[{}] request {} failed: {}", self.platform, request["id"], exc)
+            return False
+        if approve and request["kind"] == "group" and request.get("group_id"):
+            self.speak_groups.add(str(request["group_id"]))  # she was invited by her owner's choice
+        return True
+
+    async def remove_friend(self, user_id: str) -> bool:
+        try:
+            await self.call("delete_friend", user_id=_id(user_id))
+            return True
+        except Exception as exc:
+            logger.warning("[{}] delete_friend failed: {}", self.platform, exc)
+            return False
+
+    async def leave_group(self, group_id: str) -> bool:
+        try:
+            await self.call("set_group_leave", group_id=_id(group_id))
+            self.speak_groups.discard(str(group_id))
+            return True
+        except Exception as exc:
+            logger.warning("[{}] set_group_leave failed: {}", self.platform, exc)
+            return False
 
     async def _name_of(self, user_id: str, group_id: Any = None) -> str:
         try:
@@ -341,10 +397,9 @@ class OneBotAdapter(Adapter):
                         segments.append({"type": "face", "data": {"id": value}})
                     elif value:
                         segments.append({"type": "text", "data": {"text": value}})
-                elif seg.type == "meme":
-                    meme = self._meme(seg.value)
-                    if meme:
-                        segments.append({"type": "image", "data": {"file": f"base64://{meme}", "sub_type": 1}})
+                elif seg.type == "image" and seg.path:
+                    data_b64 = base64.b64encode(Path(seg.path).read_bytes()).decode()
+                    segments.append({"type": "image", "data": {"file": f"base64://{data_b64}", "sub_type": 1}})
         if not segments:
             return None
         action, target = self._target(chat)
@@ -353,12 +408,6 @@ class OneBotAdapter(Adapter):
         if msg_id:
             self._sent_ids.append(msg_id)
         return msg_id
-
-    def _meme(self, tag: str) -> str | None:
-        assert self.brain is not None
-        folder = self.brain.bot.dir / "memes" / tag
-        files = [p for p in folder.glob("*") if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".webp")]
-        return base64.b64encode(random.choice(files).read_bytes()).decode() if files else None
 
     async def typing(self, chat: Chat, on: bool) -> None:
         if on and chat.kind == "private" and self.cfg.input_status:

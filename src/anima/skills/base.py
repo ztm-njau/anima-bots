@@ -62,7 +62,7 @@ class Skill:
 
 
 REGISTRY: dict[str, Skill] = {}
-BUILTIN = ["memory_tools", "fun", "games", "weather", "reminders", "bilibili_tools", "life_tools"]
+BUILTIN = ["memory_tools", "fun", "games", "weather", "reminders", "bilibili_tools", "life_tools", "social"]
 
 
 def skill(

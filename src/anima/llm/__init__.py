@@ -90,6 +90,13 @@ def make_provider(bot: Bot, *, force_fake: bool = False, store: ProviderStore | 
         main, via = through_gateway(store, routing.main, cfg)
         if main is not None:
             logger.info("{}; using {} through the local magpie gateway instead", why, via)
+    if main is None:  # the main brain can't run yet: let the first working backup stand in
+        for target in routing.backups:
+            stand_in, _ = build_target(store, target, cfg)
+            if stand_in is not None:
+                logger.warning("{}; {} uses the backup {} until then", why, bot.config.identity.name, stand_in.model)
+                stand_in.label = f"{stand_in.label}（{why}，先用备用）"
+                return RoutedLLM(stand_in, stand_in, [], routing.source)
     if main is None:
         logger.warning("{}: {} runs in demo mode (canned replies) until this is fixed", why, bot.config.identity.name)
         demo = FakeLLM()

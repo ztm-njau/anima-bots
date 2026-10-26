@@ -89,11 +89,12 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } .route-row { grid-template-columns: 1fr 1fr; } .route-row label { grid-column: 1 / -1; } .two { grid-template-columns: 1fr; } }
 </style>
+<link rel="stylesheet" href="/static/theme.css?v=5">
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="back" href="/">← 回到聊天</a>
+    <a class="back" href="/">← 回到聊天</a><a class="back" href="/console">管理后台</a>
     <div><h1>模型提供商</h1><p>给 <b id="botName">可乐</b> 接上大脑：选一家，填好 key，测一下，点「应用」就换上了，不用重启。</p></div>
     <div class="pill" id="activePill">…</div>
   </header>
