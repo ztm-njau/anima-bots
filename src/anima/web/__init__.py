@@ -108,7 +108,7 @@ def create_app(runtime: Runtime) -> FastAPI:
     @app.get("/static/{name}")
     async def static_file(name: str):
         path = STATIC / Path(name).name
-        types = {".css": "text/css", ".svg": "image/svg+xml"}
+        types = {".css": "text/css", ".svg": "image/svg+xml", ".js": "text/javascript"}
         if path.suffix in types and path.exists():
             return FileResponse(path, media_type=types[path.suffix], headers={"Cache-Control": "no-cache"})
         return JSONResponse({}, status_code=404)

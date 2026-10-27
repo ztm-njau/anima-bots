@@ -32,7 +32,9 @@ h1 { margin: 0; font-size: 26px; letter-spacing: .5px; } h2 { margin: 0 0 12px; 
 @media (prefers-color-scheme: dark) { .pill.demo { background: #3a2a10; color: #ffc56b; border-color: #6a4a1a; } }
 
 .route-row { display: grid; grid-template-columns: 56px minmax(150px, 220px) minmax(170px, 280px) 1fr; gap: 10px; align-items: center; margin: 8px 0; }
-.route-row label { font-weight: 600; } .route-row small { color: var(--ink3); }
+.route-row > *, .grid > *, .two > * { min-width: 0; } .top > div:first-of-type { min-width: 0; flex: 1 1 320px; }
+.route-row label { font-weight: 600; }
+@media (min-width: 921px) { html[lang="en"] .route-row { grid-template-columns: 96px minmax(150px, 220px) minmax(170px, 280px) 1fr; } } .route-row small { color: var(--ink3); }
 select, input[type=text], input[type=password], input[type=number], textarea {
   width: 100%; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 12px; padding: 8px 11px; font: inherit; font-size: 14px; outline: none; }
 select:focus, input:focus, textarea:focus { border-color: var(--cola); }
@@ -89,14 +91,14 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } .route-row { grid-template-columns: 1fr 1fr; } .route-row label { grid-column: 1 / -1; } .two { grid-template-columns: 1fr; } }
 </style>
-<link rel="stylesheet" href="/static/theme.css?v=6">
+<link rel="stylesheet" href="/static/theme.css?v=7">
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <a class="back" href="/">← 回到聊天</a><a class="back" href="/console">管理后台</a>
     <div><h1>模型提供商</h1><p>给 <b id="botName">可乐</b> 接上大脑：选一家，填好 key，测一下，点「应用」就换上了，不用重启。</p></div>
-    <div class="pill" id="activePill">…</div>
+    <div class="pill" id="activePill">…</div><div data-lang-slot></div>
   </header>
 
   <section class="card">
@@ -156,18 +158,20 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="/static/i18n.js?v=2"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const S = { state: null, sel: null, draft: null, found: [] };
-const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const S = { state: null, sel: null, draft: null, found: [], result: null };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const money = (v, cur) => (cur === "USD" ? "$" : cur === "CNY" ? "¥" : (cur || "") + " ") + (+v).toFixed(4);
-const host = (u) => { try { return new URL(u).host; } catch { return u || "（未填写）"; } };
+const host = (u) => { try { return new URL(u).host; } catch { return u || t("（未填写）"); } };
+const sep = () => (I18N.lang === "zh" ? "、" : ", ");
 
-function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600); }
+function toast(msg) { const el = $("toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), 2600); }
 async function api(path, opts = {}) {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+  if (!res.ok) throw new Error(tr(data.detail || data.error || res.statusText));
   return data;
 }
 const preset = (id) => S.state.presets.find((p) => p.id === id);
@@ -184,23 +188,25 @@ async function scan() {
 }
 
 function render() {
+  renderPill(); renderList(); renderGallery(); renderRouting();
+  if (S.sel) openEditor(S.sel, true);
+}
+function renderPill() {
   const st = S.state;
   $("botName").textContent = st.bot.name;
   const pill = $("activePill");
   if (st.active) {
-    pill.className = "pill"; pill.innerHTML = `生效中 · <b>${esc(st.active.main.provider)}</b> ${esc(st.active.main.model)} · 本次花费 ${esc(st.cost)}`;
-  } else { pill.className = "pill demo"; pill.textContent = `演示模式：${st.demo_note || "还没接上模型"}`; }
-  renderList(); renderGallery(); renderRouting();
-  if (S.sel) openEditor(S.sel, true);
+    pill.className = "pill"; pill.innerHTML = t("生效中 · <b>{provider}</b> {model} · 本次花费 {cost}", { provider: esc(tr(st.active.main.provider)), model: esc(st.active.main.model), cost: esc(st.cost) });
+  } else { pill.className = "pill demo"; pill.textContent = t("演示模式：{note}", { note: tr(st.demo_note) || t("还没接上模型") }); }
 }
 
 function tags(p) {
   const out = [];
   const used = routeIds();
-  if (used.main === p.id) out.push('<span class="tag use">聊天中</span>');
-  else if (used.side === p.id || used.back === p.id) out.push('<span class="tag">在用</span>');
-  if (!p.has_key) out.push('<span class="tag bad">缺 key</span>');
-  else if (p.last_test) out.push(p.last_test.ok ? `<span class="tag ok">✓ ${p.last_test.latency_ms}ms</span>` : '<span class="tag bad">✗ 连接失败</span>');
+  if (used.main === p.id) out.push(`<span class="tag use">${t("聊天中")}</span>`);
+  else if (used.side === p.id || used.back === p.id) out.push(`<span class="tag">${t("在用")}</span>`);
+  if (!p.has_key) out.push(`<span class="tag bad">${t("缺 key")}</span>`);
+  else if (p.last_test) out.push(p.last_test.ok ? `<span class="tag ok">✓ ${p.last_test.latency_ms}ms</span>` : `<span class="tag bad">${t("✗ 连接失败")}</span>`);
   return out.join(" ");
 }
 function routeIds() { const r = S.state.routing; return { main: r.main?.provider, side: r.side?.provider, back: r.backups?.[0]?.provider }; }
@@ -210,9 +216,9 @@ function renderList() {
   $("list").innerHTML = list.length ? list.map((p) => `
     <div class="prov ${S.sel === p.id ? "on" : ""}" data-id="${p.id}">
       <div class="logo" style="background:${p.color}">${esc(p.initials)}</div>
-      <div class="info"><b>${esc(p.name)}</b><small>${esc(host(p.base_url))} · ${p.models.length} 个模型${p.key_source ? " · key：" + esc(p.key_source) : ""}</small></div>
+      <div class="info"><b>${esc(tr(p.name))}</b><small>${esc(host(p.base_url))} · ${t("{n} 个模型", { n: p.models.length })}${p.key_source ? " · " + esc(t("key：{src}", { src: tr(p.key_source) })) : ""}</small></div>
       <div>${tags(p)}</div>
-    </div>`).join("") : '<div class="empty">还没有接入任何提供商。下面挑一家，或者导入在这台电脑上发现的。</div>';
+    </div>`).join("") : `<div class="empty">${t("还没有接入任何提供商。下面挑一家，或者导入在这台电脑上发现的。")}</div>`;
   document.querySelectorAll(".prov").forEach((el) => el.onclick = () => openEditor(el.dataset.id));
 }
 
@@ -220,12 +226,12 @@ function renderFound() {
   const items = S.found.filter((d) => !d.imported);
   $("found").innerHTML = items.length ? items.map((d) => `
     <div class="found"><div class="logo" style="background:${preset(d.preset)?.color || "#888"};width:28px;height:28px;font-size:11px;border-radius:9px">${esc(preset(d.preset)?.initials || "?")}</div>
-      <span><b>${esc(d.name)}</b><br><code>${esc(d.source)}${d.key_hint ? " · " + esc(d.key_hint) : ""}</code></span>
-      <button data-id="${esc(d.id)}">导入</button></div>`).join("")
-    : '<div class="empty">没有发现现成的 key 或本机模型。把 key 放进项目的 .env（如 DEEPSEEK_API_KEY=…），或直接在右侧粘贴。</div>';
+      <span><b>${esc(tr(d.name))}</b><br><code>${esc(d.source)}${d.key_hint ? " · " + esc(d.key_hint) : ""}</code></span>
+      <button data-id="${esc(d.id)}">${t("导入")}</button></div>`).join("")
+    : `<div class="empty">${t("没有发现现成的 key 或本机模型。把 key 放进项目的 .env（如 DEEPSEEK_API_KEY=…），或直接在右侧粘贴。")}</div>`;
   document.querySelectorAll("#found button").forEach((b) => b.onclick = async () => {
     b.disabled = true;
-    try { const r = await api("/api/providers/import", { method: "POST", body: { id: b.dataset.id } }); S.state = r.state; S.sel = r.provider.id; render(); scan(); toast("导入好了，测一下连接吧"); }
+    try { const r = await api("/api/providers/import", { method: "POST", body: { id: b.dataset.id } }); S.state = r.state; S.sel = r.provider.id; render(); scan(); toast(t("导入好了，测一下连接吧")); }
     catch (e) { toast(e.message); b.disabled = false; }
   });
 }
@@ -236,8 +242,8 @@ function renderGallery() {
   for (const [g, label] of Object.entries(groups)) {
     const items = S.state.presets.filter((p) => p.group === g);
     if (!items.length) continue;
-    html += `<div class="group">${label}</div><div class="gallery">` + items.map((p) => `
-      <button class="tile" data-preset="${p.id}" title="${esc(p.note || p.base_url)}"><div class="logo" style="background:${p.color}">${esc(p.initials)}</div>${esc(p.name)}</button>`).join("") + "</div>";
+    html += `<div class="group">${esc(tr(label))}</div><div class="gallery">` + items.map((p) => `
+      <button class="tile" data-preset="${p.id}" title="${esc(tr(p.note) || p.base_url)}"><div class="logo" style="background:${p.color}">${esc(p.initials)}</div>${esc(tr(p.name))}</button>`).join("") + "</div>";
   }
   $("gallery").innerHTML = html;
   document.querySelectorAll(".tile").forEach((el) => el.onclick = () => newDraft(el.dataset.preset));
@@ -248,27 +254,27 @@ function options(sel, items, value, empty) {
   if (value && !items.some(([v]) => v === value)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(value)}" selected>${esc(value)}</option>`);
 }
 function providerChoices() {
-  const mine = S.state.providers.map((p) => [p.id, p.name + (p.has_key ? "" : "（缺 key）")]);
+  const mine = S.state.providers.map((p) => [p.id, tr(p.name) + (p.has_key ? "" : t("（缺 key）"))]);
   const r = S.state.routing, used = [r.main?.provider, r.side?.provider, ...(r.backups || []).map((b) => b.provider)];
-  const presetsInUse = used.filter((id) => id && !provider(id) && preset(id)).map((id) => [id, preset(id).name + "（未接入）"]);
+  const presetsInUse = used.filter((id) => id && !provider(id) && preset(id)).map((id) => [id, tr(preset(id).name) + t("（未接入）")]);
   return [...mine, ...presetsInUse.filter((a, i, all) => all.findIndex((b) => b[0] === a[0]) === i)];
 }
 function modelChoices(pid) { const p = provider(pid) || preset(pid); return (p?.models || []).map((m) => [m, m]); }
 
 function renderRouting() {
   const r = S.state.routing;
-  const pairs = [["main", r.main, ""], ["side", r.side, "跟聊天一样"], ["back", r.backups?.[0], "不用备用"]];
-  for (const [k, t, empty] of pairs) {
+  const pairs = [["main", r.main, ""], ["side", r.side, t("跟聊天一样")], ["back", r.backups?.[0], t("不用备用")]];
+  for (const [k, target, empty] of pairs) {
     const pSel = $(k + "P"), mSel = $(k + "M");
-    options(pSel, providerChoices(), t?.provider || "", empty);
+    options(pSel, providerChoices(), target?.provider || "", empty);
     const refreshModels = (keep) => options(mSel, modelChoices(pSel.value), keep, pSel.value ? null : "—");
-    refreshModels(t?.model || "");
+    refreshModels(target?.model || "");
     pSel.onchange = () => refreshModels(provider(pSel.value)?.models?.[0] || preset(pSel.value)?.default_model || "");
   }
   const temp = r.main?.params?.temperature ?? provider(r.main?.provider)?.effective_params?.temperature;
-  $("mainT").value = temp ?? 1; $("mainTv").textContent = temp ?? "默认";
+  $("mainT").value = temp ?? 1; $("mainTv").textContent = temp ?? t("默认");
   $("mainT").oninput = () => $("mainTv").textContent = $("mainT").value;
-  $("routeMeta").textContent = r.source === "panel" ? "当前设置来自这个面板（覆盖 bot.toml）" : "当前设置来自 bot.toml";
+  $("routeMeta").textContent = r.source === "panel" ? t("当前设置来自这个面板（覆盖 bot.toml）") : t("当前设置来自 bot.toml");
   renderMagpieHint();
 }
 
@@ -281,24 +287,24 @@ function renderMagpieHint() {
   if (!gw || !ds || using) { box.style.display = "none"; return; }
   box.style.display = "";
   box.innerHTML = `<div class="logo" style="background:#1C1C1E;width:28px;height:28px;font-size:11px;border-radius:9px">MA</div>
-    <span>你的 magpie 网关里有 <b>${esc(ds)}</b>：key 留在 magpie，可乐直接借用</span><button id="useMagpie">一键用它</button>`;
+    <span>${t("你的 magpie 网关里有 <b>{model}</b>：key 留在 magpie，可乐直接借用", { model: esc(ds) })}</span><button id="useMagpie">${t("一键用它")}</button>`;
   $("useMagpie").onclick = async () => {
     const body = { main: { provider: gw.id, model: ds, params: { temperature: 1.3 } }, side: { provider: gw.id, model: ds }, backups: [] };
-    try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(`换好了：经 magpie 使用 ${ds}`); } catch (e) { toast(e.message); }
+    try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(t("换好了：经 magpie 使用 {model}", { model: ds })); } catch (e) { toast(e.message); }
   };
 }
 
 async function applyRouting() {
   const main = $("mainP").value;
-  if (!main) return toast("先选一个聊天用的提供商");
+  if (!main) return toast(t("先选一个聊天用的提供商"));
   const target = (k) => $(k + "P").value ? { provider: $(k + "P").value, model: $(k + "M").value } : null;
   const body = { main: { ...target("main"), params: { temperature: parseFloat($("mainT").value) } }, side: target("side"), backups: target("back") ? [target("back")] : [] };
   $("apply").disabled = true;
-  try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(`换好了：${S.state.active ? S.state.active.main.provider + " · " + S.state.active.main.model : "仍是演示模式（" + S.state.demo_note + "）"}`); }
+  try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(t("换好了：{x}", { x: S.state.active ? tr(S.state.active.main.provider) + " · " + S.state.active.main.model : t("仍是演示模式（{note}）", { note: tr(S.state.demo_note) }) })); }
   catch (e) { toast(e.message); }
   $("apply").disabled = false;
 }
-async function resetRouting() { S.state = await api("/api/routing", { method: "DELETE" }); render(); toast("已恢复为 bot.toml 的设置"); }
+async function resetRouting() { S.state = await api("/api/routing", { method: "DELETE" }); render(); toast(t("已恢复为 bot.toml 的设置")); }
 
 // ---------------------------------------------------------------- editor
 function newDraft(pid) {
@@ -316,76 +322,97 @@ function fillForm(d, p) {
   $("editorEmpty").style.display = "none"; $("form").style.display = "";
   $("fLogo").style.background = d.color; $("fLogo").textContent = d.initials;
   $("fName").value = d.name; $("fUrl").value = d.base_url; $("fEnv").value = d.api_key_env || ""; $("fKey").value = "";
-  $("fProto").innerHTML = `${d.protocol === "anthropic" ? "Anthropic 原生协议" : "OpenAI 兼容协议"}${p?.docs_url ? ` · <a href="${p.docs_url}" target="_blank" rel="noopener">文档</a>` : ""}${p?.note ? " · " + esc(p.note) : ""}`;
-  $("fKeyHint").innerHTML = d.key_hint ? `已配置 ${esc(d.key_hint)}（${esc(d.key_source)}），留空就保持不变` : (d.needs_key === false ? "本机模型不需要 key" : `还没有 key${p?.key_url ? ` · <a href="${p.key_url}" target="_blank" rel="noopener">去官网获取 ↗</a>` : ""}`);
   $("fParams").value = Object.keys(d.params || {}).length ? JSON.stringify(d.params, null, 2) : "";
-  $("fParamsHint").textContent = `留空用推荐值：${JSON.stringify(p?.params || {})}`;
   $("del").style.display = d.id ? "" : "none";
-  $("result").className = "result"; $("fMeta").textContent = d.id ? "" : "新的提供商，保存后才能测试";
+  $("result").className = "result"; S.result = null;
+  formText(d, p);
+}
+// Everything in the form that is words rather than values, so a language switch can rewrite just this.
+function formText(d, p) {
+  $("fProto").innerHTML = `${d.protocol === "anthropic" ? t("Anthropic 原生协议") : t("OpenAI 兼容协议")}${p?.docs_url ? ` · <a href="${p.docs_url}" target="_blank" rel="noopener">${t("文档")}</a>` : ""}${p?.note ? " · " + esc(tr(p.note)) : ""}`;
+  $("fKeyHint").innerHTML = d.key_hint ? esc(t("已配置 {hint}（{src}），留空就保持不变", { hint: d.key_hint, src: tr(d.key_source) })) : (d.needs_key === false ? t("本机模型不需要 key") : `${t("还没有 key")}${p?.key_url ? ` · <a href="${p.key_url}" target="_blank" rel="noopener">${t("去官网获取 ↗")}</a>` : ""}`);
+  $("fParamsHint").textContent = t("留空用推荐值：{json}", { json: JSON.stringify(p?.params || {}) });
+  $("fMeta").textContent = d.id ? "" : t("新的提供商，保存后才能测试");
   renderChips();
 }
 function renderChips() {
   const d = S.draft;
-  $("fModels").innerHTML = d.models.length ? d.models.map((m, i) => `<span class="chip">${esc(m)}<button data-i="${i}" title="移除">×</button></span>`).join("") : '<span class="empty">还没有模型：点「获取模型列表」，或手动添加</span>';
+  $("fModels").innerHTML = d.models.length ? d.models.map((m, i) => `<span class="chip">${esc(m)}<button data-i="${i}" title="${t("移除")}">×</button></span>`).join("") : `<span class="empty">${t("还没有模型：点「获取模型列表」，或手动添加")}</span>`;
   document.querySelectorAll("#fModels button").forEach((b) => b.onclick = () => { d.models.splice(+b.dataset.i, 1); renderChips(); });
   const m = d.models[0], price = d.prices?.[m];
-  $("fPrice").textContent = price ? `${m} 参考价（每百万 tokens）：输入 ${money(price.input, price.currency).replace(/0+$/, "")} · 缓存命中 ${money(price.cached, price.currency).replace(/0+$/, "")} · 输出 ${money(price.output, price.currency).replace(/0+$/, "")}${price.peak_multiplier > 1 ? `，北京时间工作日 ${price.peak_hours.join("、")} 为高峰 ×${price.peak_multiplier}` : ""}` : "";
+  const cut = (v) => money(v, price.currency).replace(/\.?0+$/, "");
+  $("fPrice").textContent = price ? t("{model} 参考价（每百万 tokens）：输入 {i} · 缓存命中 {c} · 输出 {o}", { model: m, i: cut(price.input), c: cut(price.cached), o: cut(price.output) })
+    + (price.peak_multiplier > 1 ? t("，北京时间工作日 {hours} 为高峰 ×{x}", { hours: price.peak_hours.join(sep()), x: price.peak_multiplier }) : "") : "";
 }
 function collect() {
   const d = S.draft;
   let params = {};
   const raw = $("fParams").value.trim();
-  if (raw) { try { params = JSON.parse(raw); } catch { throw new Error("请求参数不是合法的 JSON"); } }
+  if (raw) { try { params = JSON.parse(raw); } catch { throw new Error(t("请求参数不是合法的 JSON")); } }
   return { id: d.id, preset: d.preset, name: $("fName").value.trim() || d.name, base_url: $("fUrl").value.trim(), api_key: $("fKey").value.trim() || undefined, api_key_env: $("fEnv").value.trim(), models: d.models, params };
 }
 async function save(silent) {
   const body = collect();
   const r = await api("/api/providers", { method: "POST", body });
   S.state = r.state; S.sel = r.provider.id; render();
-  if (!silent) toast("保存好了");
+  if (!silent) toast(t("保存好了"));
   return r.provider;
 }
-async function busy(btn, fn) { btn.disabled = true; try { await fn(); } catch (e) { showResult(false, esc(e.message)); } btn.disabled = false; }
-function showResult(ok, html) { const r = $("result"); r.className = "result show " + (ok ? "ok" : "bad"); r.innerHTML = html; }
+async function busy(btn, fn) { btn.disabled = true; try { await fn(); } catch (e) { showResult(false, () => esc(e.message)); } btn.disabled = false; }
+// The result box keeps how to draw itself, not the words, so it follows the language too.
+function showResult(ok, draw) { S.result = { ok, draw }; const r = $("result"); r.className = "result show " + (ok ? "ok" : "bad"); r.innerHTML = draw(); }
 const chosenModel = () => S.draft?.models?.[0];
 
 $("fNewModel").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.value.trim()) { S.draft.models.unshift(e.target.value.trim()); e.target.value = ""; renderChips(); } });
 $("save").onclick = () => busy($("save"), () => save(false));
-$("del").onclick = async () => { if (!S.draft?.id || !confirm(`删除「${S.draft.name}」？`)) return; S.state = await api(`/api/providers/${S.draft.id}`, { method: "DELETE" }); S.sel = null; S.draft = null; render(); $("form").style.display = "none"; $("editorEmpty").style.display = ""; scan(); };
+$("del").onclick = async () => { if (!S.draft?.id || !confirm(t("删除「{name}」？", { name: S.draft.name }))) return; S.state = await api(`/api/providers/${S.draft.id}`, { method: "DELETE" }); S.sel = null; S.draft = null; render(); $("form").style.display = "none"; $("editorEmpty").style.display = ""; scan(); };
 $("fetch").onclick = () => busy($("fetch"), async () => {
   const p = await save(true);
   const r = await api(`/api/providers/${p.id}/models`, { method: "POST", body: { model: chosenModel() } });
   S.state = r.state; openEditor(p.id);
-  showResult(true, `拿到 ${r.models.length} 个模型：<br><code style="font:12px var(--mono)">${r.models.map(esc).join("、")}</code>`);
+  showResult(true, () => `${t("拿到 {n} 个模型：", { n: r.models.length })}<br><code style="font:12px var(--mono)">${r.models.map(esc).join(sep())}</code>`);
 });
 $("test").onclick = () => busy($("test"), async () => {
   const p = await save(true);
   const r = await api(`/api/providers/${p.id}/test`, { method: "POST", body: { model: chosenModel() } });
   S.state = r.state; openEditor(p.id, true); renderList();
-  if (r.ok) showResult(true, `✓ 连上了 · ${esc(r.model)} · ${r.latency_ms} ms · 回复「${esc(r.reply)}」${r.currency ? ` · 花费 ${money(r.cost, r.currency)}` : ""}`);
-  else showResult(false, `✗ ${esc(r.error)}`);
+  if (r.ok) showResult(true, () => esc(t("✓ 连上了 · {model} · {ms} ms · 回复「{reply}」", { model: r.model, ms: r.latency_ms, reply: r.reply })) + (r.currency ? esc(t(" · 花费 {cost}", { cost: money(r.cost, r.currency) })) : ""));
+  else showResult(false, () => `✗ ${esc(tr(r.error))}`);
 });
 $("hear").onclick = () => busy($("hear"), async () => {
   const p = await save(true);
-  showResult(true, `正在请 ${esc(S.state.bot.name)} 用 ${esc(chosenModel() || "默认模型")} 打个招呼…`);
+  const model = chosenModel() || t("默认模型");
+  showResult(true, () => esc(t("正在请 {name} 用 {model} 打个招呼…", { name: S.state.bot.name, model })));
   const r = await api(`/api/providers/${p.id}/preview`, { method: "POST", body: { model: chosenModel() } });
   const bubbles = r.bubbles.map((b, i) => `<div class="b" style="animation-delay:${i * 0.35}s">${b.voice ? "🎤 " + esc(b.voice) : esc(b.text)}</div>`).join("");
-  showResult(true, `<b>你：</b>嗨可乐！第一次见面，跟我打个招呼、介绍一下自己吧<div class="preview">${bubbles || '<div class="empty">（她没说话）</div>'}</div><div class="actions"><span class="meta">${esc(r.model)} · ${r.latency_ms} ms${r.currency ? " · " + money(r.cost, r.currency) : ""}</span></div>`);
+  showResult(true, () => `<b>${t("你：")}</b>${t("嗨可乐！第一次见面，跟我打个招呼、介绍一下自己吧")}<div class="preview">${bubbles || `<div class="empty">${t("（她没说话）")}</div>`}</div><div class="actions"><span class="meta">${esc(r.model)} · ${r.latency_ms} ms${r.currency ? " · " + money(r.cost, r.currency) : ""}</span></div>`);
 });
 $("exam").onclick = () => busy($("exam"), async () => {
   const p = await save(true);
-  showResult(true, `考试中：12 个场景，用 ${esc(chosenModel() || "默认模型")} 一个个来，大概要半分钟到几分钟…`);
+  const model = chosenModel() || t("默认模型");
+  showResult(true, () => esc(t("考试中：12 个场景，用 {model} 一个个来，大概要半分钟到几分钟…", { model })));
   const r = await api(`/api/providers/${p.id}/exam`, { method: "POST", body: { model: chosenModel() } });
   const s = r.summary;
-  const rows = r.results.map((x) => `<details><summary>${x.passed ? "✅" : "❌"} ${esc(x.title)}<small>${x.latency_ms} ms</small></summary>
-    ${x.lines.map(([who, text]) => `<div><b>${esc(who)}：</b>${esc(text)}</div>`).join("")}
-    <div class="preview">${x.bubbles.map((b) => `<div class="b">${esc(b)}</div>`).join("") || '<div class="empty">（没说话）</div>'}</div>
-    ${x.tools.length ? `<div class="meta">用了工具：${x.tools.map(esc).join("、")}</div>` : ""}
-    ${x.failed.length || x.error ? `<div class="fail">没通过：${esc([...x.failed, x.error].filter(Boolean).join("；"))}</div>` : ""}</details>`).join("");
-  showResult(s.passed >= s.scenarios * 0.75, `<div><span class="score">${s.passed}/${s.scenarios}</span>场景通过 · 检查项 ${s.checks_passed}/${s.checks} · 平均 ${s.avg_latency_ms} ms${s.currency ? " · 花费 " + money(s.cost, s.currency) : ""}</div>
-    <div class="exam">${rows}</div><div class="meta">完整报告：${esc(r.report)}</div>`);
+  showResult(s.passed >= s.scenarios * 0.75, () => {
+    const rows = r.results.map((x) => `<details><summary>${x.passed ? "✅" : "❌"} ${esc(tr(x.title))}<small>${x.latency_ms} ms</small></summary>
+      ${x.lines.map(([who, text]) => `<div><b>${esc(who)}：</b>${esc(text)}</div>`).join("")}
+      <div class="preview">${x.bubbles.map((b) => `<div class="b">${esc(b)}</div>`).join("") || `<div class="empty">${t("（没说话）")}</div>`}</div>
+      ${x.tools.length ? `<div class="meta">${esc(t("用了工具：{list}", { list: x.tools.join(sep()) }))}</div>` : ""}
+      ${x.failed.length || x.error ? `<div class="fail">${esc(t("没通过：{list}", { list: [...x.failed, x.error].filter(Boolean).join(I18N.lang === "zh" ? "；" : "; ") }))}</div>` : ""}</details>`).join("");
+    return `<div><span class="score">${s.passed}/${s.scenarios}</span>${t("场景通过 · 检查项 {cp}/{c} · 平均 {ms} ms", { cp: s.checks_passed, c: s.checks, ms: s.avg_latency_ms })}${s.currency ? esc(t(" · 花费 {cost}", { cost: money(s.cost, s.currency) })) : ""}</div>
+      <div class="exam">${rows}</div><div class="meta">${esc(t("完整报告：{path}", { path: r.report }))}</div>`;
+  });
 });
 $("apply").onclick = applyRouting; $("reset").onclick = resetRouting;
+
+I18N.mount();
+// Redraw the words only: the open editor keeps its draft (models added, fields typed).
+I18N.onChange(() => {
+  if (!S.state) return;
+  renderPill(); renderList(); renderGallery(); renderFound(); renderRouting();
+  if (S.draft && $("form").style.display !== "none") formText(S.draft, preset(S.draft.preset));
+  if (S.result) showResult(S.result.ok, S.result.draw);
+});
 load().catch((e) => toast(e.message));
 </script>
 </body>

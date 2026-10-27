@@ -310,6 +310,21 @@ async def test_console_settings_people_and_stickers(scratch_bot, monkeypatch):
         await runtime.memory.close()
 
 
+def test_every_page_has_the_language_toggle_and_english_for_its_words():
+    import re
+    from pathlib import Path
+
+    static = Path("src/anima/web/static")
+    i18n = (static / "i18n.js").read_text(encoding="utf-8")
+    keys = set(re.findall(r'"((?:[^"\\\n]|\\.)*)":', i18n))
+    for page in ("index.html", "providers.html", "console.html"):
+        html = (static / page).read_text(encoding="utf-8")
+        assert '<script src="/static/i18n.js' in html and "data-lang-slot" in html and "I18N.mount()" in html, page
+        said = set(re.findall(r'\bt\("((?:[^"\\\n]|\\.)*)"', html))
+        missing = {s for s in said if re.search(r"[一-鿿]", s) and s not in keys}
+        assert not missing, f"{page}: no English for {sorted(missing)}"
+
+
 async def test_openai_compatible_endpoint_serves_her_brain(make_brain, monkeypatch):
     import httpx
     from fastapi import FastAPI

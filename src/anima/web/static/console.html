@@ -22,6 +22,7 @@ nav a:hover { background:var(--panel2); color:var(--ink); }
 nav a.on { background:var(--panel); color:var(--ink); box-shadow:var(--shadow); border:1px solid var(--line); }
 nav a b { font-size:11.5px; background:var(--cola); color:#fff; border-radius:99px; padding:0 7px; font-weight:600; }
 nav .sep { height:1px; background:var(--line); margin:10px 8px; }
+nav .lang-slot { margin-top:auto; padding:10px 8px 0; }
 main { padding:24px 26px 60px; max-width:1180px; width:100%; }
 h1 { margin:0 0 4px; font-size:24px; } .sub { color:var(--ink2); margin:0 0 18px; }
 .card { background:var(--panel); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); padding:16px 18px; margin-bottom:16px; }
@@ -56,7 +57,7 @@ th { color:var(--ink3); font-weight:500; font-size:12.5px; } tr.click { cursor:p
 code { font:12.5px var(--mono); }
 @media (max-width: 860px) { .shell { grid-template-columns:1fr; } nav { position:static; height:auto; flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--line); } nav .sep, nav .brand { display:none; } .two, .three { grid-template-columns:1fr; } }
 </style>
-<link rel="stylesheet" href="/static/theme.css?v=6">
+<link rel="stylesheet" href="/static/theme.css?v=7">
 </head>
 <body>
 <div class="shell">
@@ -72,32 +73,36 @@ code { font:12.5px var(--mono); }
     <a href="#stickers" data-page="stickers">表情包</a>
     <a href="#plugins" data-page="plugins">插件</a>
     <a href="#settings" data-page="settings">设置</a>
+    <div class="lang-slot" data-lang-slot></div>
   </nav>
   <main id="main"></main>
 </div>
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
 
+<script src="/static/i18n.js?v=2"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const ago = (ts) => { if (!ts) return "—"; const s = Date.now() / 1000 - ts; return s < 3600 ? Math.max(1, Math.round(s / 60)) + " 分钟前" : s < 86400 ? Math.round(s / 3600) + " 小时前" : Math.round(s / 86400) + " 天前"; };
-function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600); }
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ago = (ts) => { if (!ts) return "—"; const s = Date.now() / 1000 - ts; return s < 3600 ? t("{n} 分钟前", { n: Math.max(1, Math.round(s / 60)) }) : s < 86400 ? t("{n} 小时前", { n: Math.round(s / 3600) }) : t("{n} 天前", { n: Math.round(s / 86400) }); };
+function toast(m) { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), 2600); }
 async function api(path, opts = {}) {
   const res = await fetch("/api/console" + path, { headers: { "Content-Type": "application/json" }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+  if (!res.ok) throw new Error(tr(data.detail || data.error || res.statusText));
   return data;
 }
 const readFile = (file) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
-const list = (v) => (v || []).join("，");
+const sep = () => (I18N.lang === "zh" ? "、" : ", ");
+const list = (v) => (v || []).join(I18N.lang === "zh" ? "，" : ", ");
 const parseList = (s, num) => s.split(/[,，\s]+/).map((x) => x.trim()).filter(Boolean).map((x) => num && /^\d+$/.test(x) ? +x : x);
 
 const pages = {};
+const current = () => (location.hash || "#overview").slice(1);
 async function route() {
-  const page = (location.hash || "#overview").slice(1);
+  const page = current();
   document.querySelectorAll("nav a[data-page]").forEach((a) => a.classList.toggle("on", a.dataset.page === page));
-  $("drawer").classList.remove("open");
+  $("drawer").classList.remove("open"); PERSON = null;
   try { await (pages[page] || pages.overview)(); } catch (e) { $("main").innerHTML = `<div class="card warn">${esc(e.message)}</div>`; }
 }
 window.addEventListener("hashchange", route);
@@ -107,51 +112,55 @@ pages.overview = async () => {
   const o = await api("/overview");
   $("botName").textContent = o.bot;
   $("reqBadge").style.display = o.requests ? "" : "none"; $("reqBadge").textContent = o.requests;
-  $("main").innerHTML = `<h1>${esc(o.bot)} 的后台</h1><p class="sub">平台：${o.platforms.map(esc).join("、")} · 本次花费 ${esc(o.cost)}</p>
-  ${o.demo ? `<div class="card warn">还没接上真正的模型，她现在只会说预设台词，真实平台上会保持安静。<a href="/providers">去接入模型 →</a></div>` : `<div class="card">大脑：<b>${esc(o.model)}</b> · <a href="/providers">换模型</a></div>`}
+  $("main").innerHTML = `<h1>${esc(t("{bot} 的后台", { bot: o.bot }))}</h1><p class="sub">${esc(t("平台：{list} · 本次花费 {cost}", { list: o.platforms.join(sep()), cost: o.cost }))}</p>
+  ${o.demo ? `<div class="card warn">${t("还没接上真正的模型，她现在只会说预设台词，真实平台上会保持安静。")}<a href="/providers">${t("去接入模型 →")}</a></div>` : `<div class="card">${t("大脑：")}<b>${esc(tr(o.model))}</b> · <a href="/providers">${t("换模型")}</a></div>`}
   <div class="grid">
-    ${[["people", o.people, "认识的人", `${o.blocked} 人被拉黑`], ["requests", o.requests, "待处理请求", "好友/群邀请"], ["lore", o.lore, "世界书条目", "提到关键词时想起"],
-       ["stickers", o.stickers, "表情包", "会自己攒"], ["plugins", o.plugins, "运行中的插件", `她一共有 ${o.skills} 个工具`]]
-      .map(([p, n, label, sub]) => `<a class="card stat" href="#${p}" style="text-decoration:none"><b>${n}</b><span>${label}</span><div class="hint">${sub}</div></a>`).join("")}
+    ${[["people", o.people, "认识的人", t("{n} 人被拉黑", { n: o.blocked })], ["requests", o.requests, "待处理请求", t("好友/群邀请")], ["lore", o.lore, "世界书条目", t("提到关键词时想起")],
+       ["stickers", o.stickers, "表情包", t("会自己攒")], ["plugins", o.plugins, "运行中的插件", t("她一共有 {n} 个工具", { n: o.skills })]]
+      .map(([p, n, label, sub]) => `<a class="card stat" href="#${p}" style="text-decoration:none"><b>${n}</b><span>${t(label)}</span><div class="hint">${sub}</div></a>`).join("")}
   </div>`;
 };
 
 // ---------------------------------------------------------------- people
-pages.people = async (q = "") => {
+let PEOPLE_Q = "", PERSON = null;
+pages.people = async (q = PEOPLE_Q) => {
+  PEOPLE_Q = q;
   const people = await api("/people?q=" + encodeURIComponent(q));
-  $("main").innerHTML = `<h1>用户与画像</h1><p class="sub">她认识的每个人：画像、记得的事、好感，以及拉黑和暂停聊天。</p>
-  <div class="card"><div class="row"><input type="search" id="pq" class="grow" placeholder="按名字、昵称或 QQ 号搜" value="${esc(q)}"></div>
-  <table><thead><tr><th>名字</th><th>平台</th><th>好感</th><th>消息</th><th>最近</th><th>画像</th><th></th></tr></thead><tbody>
-  ${people.map((u) => `<tr class="click" data-key="${esc(u.key)}"><td><b>${esc(u.name)}</b>${u.nickname ? `<div class="hint">她叫 TA「${esc(u.nickname)}」</div>` : ""}</td>
+  $("main").innerHTML = `<h1>${t("用户与画像")}</h1><p class="sub">${t("她认识的每个人：画像、记得的事、好感，以及拉黑和暂停聊天。")}</p>
+  <div class="card"><div class="row"><input type="search" id="pq" class="grow" placeholder="${t("按名字、昵称或 QQ 号搜")}" value="${esc(q)}"></div>
+  <table><thead><tr><th>${t("名字")}</th><th>${t("平台")}</th><th>${t("好感")}</th><th>${t("消息")}</th><th>${t("最近")}</th><th>${t("画像")}</th><th></th></tr></thead><tbody>
+  ${people.map((u) => `<tr class="click" data-key="${esc(u.key)}"><td><b>${esc(u.name)}</b>${u.nickname ? `<div class="hint">${esc(t("她叫 TA「{nick}」", { nick: u.nickname }))}</div>` : ""}</td>
     <td>${esc(u.platform)}<div class="hint">${esc(u.uid)}</div></td><td>${u.affinity.toFixed(2)}</td><td>${u.msg_count}</td><td>${ago(u.last_seen)}</td>
-    <td style="max-width:320px">${esc((u.profile || "").slice(0, 60)) || '<span class="hint">还没形成</span>'}${u.facts ? `<div class="hint">记得 ${u.facts} 件事</div>` : ""}</td>
-    <td>${u.blocked ? '<span class="tag bad">已拉黑</span>' : ""}${u.silenced_until > Date.now() / 1000 ? '<span class="tag">她暂时不理</span>' : ""}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">还没认识任何人</td></tr>'}
+    <td style="max-width:320px">${esc((u.profile || "").slice(0, 60)) || `<span class="hint">${t("还没形成")}</span>`}${u.facts ? `<div class="hint">${t("记得 {n} 件事", { n: u.facts })}</div>` : ""}</td>
+    <td>${u.blocked ? `<span class="tag bad">${t("已拉黑")}</span>` : ""}${u.silenced_until > Date.now() / 1000 ? `<span class="tag">${t("她暂时不理")}</span>` : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="empty">${t("还没认识任何人")}</td></tr>`}
   </tbody></table></div>`;
   $("pq").onchange = (e) => pages.people(e.target.value);
-  document.querySelectorAll("tr[data-key]").forEach((tr) => tr.onclick = () => openPerson(tr.dataset.key));
+  document.querySelectorAll("tr[data-key]").forEach((row) => row.onclick = () => openPerson(row.dataset.key));
 };
 async function openPerson(key) {
   const u = await api("/people/" + encodeURIComponent(key));
+  PERSON = key;
   const d = $("drawer"); d.classList.add("open");
   const silenced = u.silenced_until > Date.now() / 1000;
-  d.innerHTML = `<div class="row"><h1 class="grow">${esc(u.name)}</h1><button onclick="$('drawer').classList.remove('open')">关闭</button></div>
-  <p class="sub">${esc(u.key)} · 第一次见 ${ago(u.first_seen)} · 聊过 ${u.msg_count} 句${u.birthday ? " · 生日 " + esc(u.birthday) : ""}</p>
-  <div class="two"><div class="field"><label>她怎么叫 TA</label><input type="text" id="uNick" value="${esc(u.nickname || "")}"></div>
-  <div class="field"><label>好感（-1 讨厌 ~ 1 好朋友）</label><input type="number" id="uAff" step="0.05" min="-1" max="1" value="${u.affinity.toFixed(2)}"></div></div>
-  <div class="field"><label>用户画像（她对 TA 的整体印象，聊天时会参考；记忆整理时自动更新）</label><textarea id="uProfile">${esc(u.profile || "")}</textarea></div>
-  <div class="field"><label>主人备注（只有你看得到，她不会看）</label><textarea id="uNotes">${esc(u.notes || "")}</textarea></div>
-  <div class="row"><button class="primary" id="uSave">保存</button>
-    <button id="uBlock">${u.blocked ? "放行" : "拉黑"}</button>
-    ${silenced ? '<button id="uUnsilence">让她重新理 TA</button>' : ""}
-    <button class="danger" id="uForget">忘掉关于 TA 的一切</button></div>
-  <h3 style="margin-top:22px">她记得的事</h3>
-  ${u.fact_list.map((f) => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${esc(f.content)}</span><span class="tag">${f.importance}</span><button class="small danger" data-fact="${f.id}">删</button></div>`).join("") || '<div class="empty">暂无</div>'}
-  <div class="row" style="margin-top:10px"><input type="text" id="uFact" class="grow" placeholder="手动告诉她一件关于 TA 的事"><button id="uAdd">添加</button></div>`;
+  d.innerHTML = `<div class="row"><h1 class="grow">${esc(u.name)}</h1><button id="uClose">${t("关闭")}</button></div>
+  <p class="sub">${esc(u.key)} · ${esc(t("第一次见 {when} · 聊过 {n} 句", { when: ago(u.first_seen), n: u.msg_count }))}${u.birthday ? esc(t(" · 生日 {b}", { b: u.birthday })) : ""}</p>
+  <div class="two"><div class="field"><label>${t("她怎么叫 TA")}</label><input type="text" id="uNick" value="${esc(u.nickname || "")}"></div>
+  <div class="field"><label>${t("好感（-1 讨厌 ~ 1 好朋友）")}</label><input type="number" id="uAff" step="0.05" min="-1" max="1" value="${u.affinity.toFixed(2)}"></div></div>
+  <div class="field"><label>${t("用户画像（她对 TA 的整体印象，聊天时会参考；记忆整理时自动更新）")}</label><textarea id="uProfile">${esc(u.profile || "")}</textarea></div>
+  <div class="field"><label>${t("主人备注（只有你看得到，她不会看）")}</label><textarea id="uNotes">${esc(u.notes || "")}</textarea></div>
+  <div class="row"><button class="primary" id="uSave">${t("保存")}</button>
+    <button id="uBlock">${u.blocked ? t("放行") : t("拉黑")}</button>
+    ${silenced ? `<button id="uUnsilence">${t("让她重新理 TA")}</button>` : ""}
+    <button class="danger" id="uForget">${t("忘掉关于 TA 的一切")}</button></div>
+  <h3 style="margin-top:22px">${t("她记得的事")}</h3>
+  ${u.fact_list.map((f) => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${esc(f.content)}</span><span class="tag">${f.importance}</span><button class="small danger" data-fact="${f.id}">${t("删")}</button></div>`).join("") || `<div class="empty">${t("暂无")}</div>`}
+  <div class="row" style="margin-top:10px"><input type="text" id="uFact" class="grow" placeholder="${t("手动告诉她一件关于 TA 的事")}"><button id="uAdd">${t("添加")}</button></div>`;
   const reload = () => openPerson(key);
-  $("uSave").onclick = async () => { await api("/people/" + encodeURIComponent(key), { method: "PATCH", body: { nickname: $("uNick").value || null, affinity: parseFloat($("uAff").value), profile: $("uProfile").value, notes: $("uNotes").value } }); toast("保存好了"); };
-  $("uBlock").onclick = async () => { await api("/people/" + encodeURIComponent(key), { method: "PATCH", body: { blocked: !u.blocked } }); toast(u.blocked ? "已放行" : "已拉黑：TA 的消息她再也看不到"); reload(); pages.people(); };
+  $("uClose").onclick = () => { d.classList.remove("open"); PERSON = null; };
+  $("uSave").onclick = async () => { await api("/people/" + encodeURIComponent(key), { method: "PATCH", body: { nickname: $("uNick").value || null, affinity: parseFloat($("uAff").value), profile: $("uProfile").value, notes: $("uNotes").value } }); toast(t("保存好了")); };
+  $("uBlock").onclick = async () => { await api("/people/" + encodeURIComponent(key), { method: "PATCH", body: { blocked: !u.blocked } }); toast(u.blocked ? t("已放行") : t("已拉黑：TA 的消息她再也看不到")); reload(); pages.people(); };
   if (silenced) $("uUnsilence").onclick = async () => { await api("/people/" + encodeURIComponent(key), { method: "PATCH", body: { silenced_until: 0 } }); reload(); };
-  $("uForget").onclick = async () => { if (confirm("删掉她记得的关于 TA 的所有事、画像和昵称？")) { await api(`/people/${encodeURIComponent(key)}/forget`, { method: "POST" }); reload(); } };
+  $("uForget").onclick = async () => { if (confirm(t("删掉她记得的关于 TA 的所有事、画像和昵称？"))) { await api(`/people/${encodeURIComponent(key)}/forget`, { method: "POST" }); reload(); } };
   $("uAdd").onclick = async () => { if ($("uFact").value.trim()) { await api(`/people/${encodeURIComponent(key)}/facts`, { method: "POST", body: { content: $("uFact").value } }); reload(); } };
   d.querySelectorAll("[data-fact]").forEach((b) => b.onclick = async () => { await api(`/people/${encodeURIComponent(key)}/facts/${b.dataset.fact}`, { method: "DELETE" }); reload(); });
 }
@@ -161,68 +170,69 @@ pages.requests = async () => {
   const pending = await api("/requests?status=pending"), all = await api("/requests");
   const done = all.filter((r) => r.status !== "pending");
   const row = (r) => `<tr><td>#${r.id}</td><td><b>${esc(r.user_name || r.user_id)}</b><div class="hint">${esc(r.platform)} ${esc(r.user_id)}</div></td>
-    <td>${r.kind === "friend" ? "加好友" : "邀请进群 " + esc(r.group_id)}</td><td>${esc(r.comment) || '<span class="hint">没留言</span>'}</td><td>${ago(r.created_at)}</td>
-    <td>${r.status === "pending" ? `<button class="small primary" data-ok="${r.id}">同意</button> <button class="small" data-no="${r.id}">拒绝</button>` : `<span class="tag ${r.status === "approved" ? "ok" : "bad"}">${r.status === "approved" ? "已同意" : "已拒绝"}</span> <span class="hint">${esc(r.note)}</span>`}</td></tr>`;
-  $("main").innerHTML = `<h1>好友请求与群邀请</h1><p class="sub">规则在「设置」里：全部同意 / 认识的人和带暗号的自动同意、其他问你 / 都问你 / 不理。主人也可以在 QQ 私聊她 /同意 编号。</p>
-  <div class="card"><h3 style="margin-top:0">待处理</h3><table><tbody>${pending.map(row).join("") || '<tr><td class="empty">没有待处理的请求</td></tr>'}</tbody></table></div>
-  <div class="card"><h3 style="margin-top:0">处理过的</h3><table><tbody>${done.slice(0, 50).map(row).join("") || '<tr><td class="empty">暂无</td></tr>'}</tbody></table></div>`;
-  const act = async (id, approve) => { const r = await api("/requests/" + id, { method: "POST", body: { approve } }); toast(r.result); pages.requests(); };
+    <td>${r.kind === "friend" ? t("加好友") : esc(t("邀请进群 {g}", { g: r.group_id }))}</td><td>${esc(r.comment) || `<span class="hint">${t("没留言")}</span>`}</td><td>${ago(r.created_at)}</td>
+    <td>${r.status === "pending" ? `<button class="small primary" data-ok="${r.id}">${t("同意")}</button> <button class="small" data-no="${r.id}">${t("拒绝")}</button>` : `<span class="tag ${r.status === "approved" ? "ok" : "bad"}">${r.status === "approved" ? t("已同意") : t("已拒绝")}</span> <span class="hint">${esc(tr(r.note))}</span>`}</td></tr>`;
+  $("main").innerHTML = `<h1>${t("好友请求与群邀请")}</h1><p class="sub">${t("规则在「设置」里：全部同意 / 认识的人和带暗号的自动同意、其他问你 / 都问你 / 不理。主人也可以在 QQ 私聊她 /同意 编号。")}</p>
+  <div class="card"><h3 style="margin-top:0">${t("待处理")}</h3><table><tbody>${pending.map(row).join("") || `<tr><td class="empty">${t("没有待处理的请求")}</td></tr>`}</tbody></table></div>
+  <div class="card"><h3 style="margin-top:0">${t("处理过的")}</h3><table><tbody>${done.slice(0, 50).map(row).join("") || `<tr><td class="empty">${t("暂无")}</td></tr>`}</tbody></table></div>`;
+  const act = async (id, approve) => { const r = await api("/requests/" + id, { method: "POST", body: { approve } }); toast(tr(r.result)); pages.requests(); };
   document.querySelectorAll("[data-ok]").forEach((b) => b.onclick = () => act(b.dataset.ok, true));
   document.querySelectorAll("[data-no]").forEach((b) => b.onclick = () => act(b.dataset.no, false));
 };
 
 // ---------------------------------------------------------------- lore
-let LORE = {}, LORE_SEL = null;
-pages.lore = async () => {
-  LORE = await api("/lore");
+let LORE = null, LORE_SEL = null;
+pages.lore = async (fresh = true) => {
+  if (fresh || !LORE) LORE = await api("/lore");
   if (!LORE_SEL || !(LORE_SEL in LORE)) LORE_SEL = Object.keys(LORE)[0] || null;
-  $("main").innerHTML = `<h1>世界书</h1><p class="sub">聊到关键词时她才会"想起"的设定：她的世界、朋友圈的梗、群里的人和事。兼容 SillyTavern 的世界书和角色卡。</p>
+  $("main").innerHTML = `<h1>${t("世界书")}</h1><p class="sub">${t("聊到关键词时她才会\"想起\"的设定：她的世界、朋友圈的梗、群里的人和事。兼容 SillyTavern 的世界书和角色卡。")}</p>
   <div class="card"><div class="row">
     <select id="loreBook" style="width:auto">${Object.keys(LORE).map((n) => `<option ${n === LORE_SEL ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
-    <button id="loreNew">新建一本</button>
-    <label class="tag" style="cursor:pointer;padding:6px 10px">导入 SillyTavern 世界书 / 角色卡<input type="file" id="loreImport" accept=".json,.png" hidden></label>
-    <label class="tag" style="cursor:pointer;padding:6px 10px">用角色卡创建新 bot<input type="file" id="cardImport" accept=".json,.png" hidden></label>
-    ${LORE_SEL ? '<button class="danger" id="loreDel">删除这本</button>' : ""}</div></div>
-  <div class="card"><div class="row"><input type="text" id="loreTest" class="grow" placeholder="试一句话，看看会触发哪些条目"><button id="loreTry">试一试</button></div><div id="loreHits" class="hint"></div></div>
+    <button id="loreNew">${t("新建一本")}</button>
+    <label class="tag" style="cursor:pointer;padding:6px 10px">${t("导入 SillyTavern 世界书 / 角色卡")}<input type="file" id="loreImport" accept=".json,.png" hidden></label>
+    <label class="tag" style="cursor:pointer;padding:6px 10px">${t("用角色卡创建新 bot")}<input type="file" id="cardImport" accept=".json,.png" hidden></label>
+    ${LORE_SEL ? `<button class="danger" id="loreDel">${t("删除这本")}</button>` : ""}</div></div>
+  <div class="card"><div class="row"><input type="text" id="loreTest" class="grow" placeholder="${t("试一句话，看看会触发哪些条目")}"><button id="loreTry">${t("试一试")}</button></div><div id="loreHits" class="hint"></div></div>
   <div id="loreEntries"></div>`;
   renderLore();
   $("loreBook").onchange = (e) => { LORE_SEL = e.target.value; renderLore(); };
-  $("loreNew").onclick = async () => { const n = prompt("世界书的名字"); if (n) { await api("/lore/" + encodeURIComponent(n), { method: "PUT", body: { entries: [] } }); LORE_SEL = n; pages.lore(); } };
-  if ($("loreDel")) $("loreDel").onclick = async () => { if (confirm(`删除「${LORE_SEL}」？`)) { await api("/lore/" + encodeURIComponent(LORE_SEL), { method: "DELETE" }); LORE_SEL = null; pages.lore(); } };
-  $("loreImport").onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = await api("/lore/import", { method: "POST", body: { filename: f.name, data: await readFile(f) } }); LORE_SEL = r.name; toast(`导入了 ${r.count} 条`); pages.lore(); } catch (err) { toast(err.message); } };
-  $("cardImport").onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = await api("/cards/import", { method: "POST", body: { filename: f.name, data: await readFile(f) } }); alert(`新 bot「${r.bot}」建好了：bots/${r.bot}/\n在终端运行：${r.run}`); } catch (err) { toast(err.message); } };
-  $("loreTry").onclick = async () => { const hits = await api("/lore/test", { method: "POST", body: { text: $("loreTest").value } }); $("loreHits").innerHTML = hits.length ? hits.map((h) => "• " + esc(h.slice(0, 80))).join("<br>") : "没有触发任何条目"; };
+  $("loreNew").onclick = async () => { const n = prompt(t("世界书的名字")); if (n) { await api("/lore/" + encodeURIComponent(n), { method: "PUT", body: { entries: [] } }); LORE_SEL = n; pages.lore(); } };
+  if ($("loreDel")) $("loreDel").onclick = async () => { if (confirm(t("删除「{name}」？", { name: LORE_SEL }))) { await api("/lore/" + encodeURIComponent(LORE_SEL), { method: "DELETE" }); LORE_SEL = null; pages.lore(); } };
+  $("loreImport").onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = await api("/lore/import", { method: "POST", body: { filename: f.name, data: await readFile(f) } }); LORE_SEL = r.name; toast(t("导入了 {n} 条", { n: r.count })); pages.lore(); } catch (err) { toast(err.message); } };
+  $("cardImport").onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = await api("/cards/import", { method: "POST", body: { filename: f.name, data: await readFile(f) } }); alert(t("新 bot「{bot}」建好了：bots/{bot}/\n在终端运行：{run}", { bot: r.bot, run: r.run })); } catch (err) { toast(err.message); } };
+  $("loreTry").onclick = async () => { const hits = await api("/lore/test", { method: "POST", body: { text: $("loreTest").value } }); $("loreHits").innerHTML = hits.length ? hits.map((h) => "• " + esc(h.slice(0, 80))).join("<br>") : t("没有触发任何条目"); };
 };
+// The entries as they stand in the form, saved or not.
+const collectLore = () => [...document.querySelectorAll("#loreEntries .lore-entry")].map((el, i) => ({ ...LORE[LORE_SEL][i], keys: parseList(el.querySelector(".lk").value), comment: el.querySelector(".lc").value,
+  priority: parseInt(el.querySelector(".lp").value || "100"), constant: el.querySelector(".lconst").checked, enabled: el.querySelector(".len").checked, content: el.querySelector(".lt").value }));
 function renderLore() {
   const box = $("loreEntries");
-  if (!LORE_SEL) { box.innerHTML = '<div class="card empty">还没有世界书。新建一本，或者导入 SillyTavern 的世界书 JSON / 角色卡 PNG。</div>'; return; }
+  if (!LORE_SEL) { box.innerHTML = `<div class="card empty">${t("还没有世界书。新建一本，或者导入 SillyTavern 的世界书 JSON / 角色卡 PNG。")}</div>`; return; }
   const entries = LORE[LORE_SEL];
   box.innerHTML = `<div class="card">${entries.map((e, i) => `<div class="lore-entry" data-i="${i}">
-    <div class="three"><div class="field"><label>关键词（逗号分隔，/正则/ 也行）</label><input type="text" class="lk" value="${esc(list(e.keys))}"></div>
-    <div class="field"><label>备注</label><input type="text" class="lc" value="${esc(e.comment)}"></div>
-    <div class="field"><label>优先级 · 常驻 · 启用</label><div class="row"><input type="number" class="lp" value="${e.priority}" style="width:80px">
-      <label><input type="checkbox" class="lconst" ${e.constant ? "checked" : ""}> 常驻</label><label><input type="checkbox" class="len" ${e.enabled ? "checked" : ""}> 启用</label>
-      <button class="small danger ldel">删</button></div></div></div>
-    <textarea class="lt" placeholder="内容：可以用 {{char}} 指她自己，{{user}} 指正在说话的人">${esc(e.content)}</textarea></div>`).join("") || '<div class="empty">这本还是空的</div>'}
-    <div class="row"><button id="loreAdd">+ 加一条</button><button class="primary" id="loreSave">保存</button></div></div>`;
-  const collect = () => [...box.querySelectorAll(".lore-entry")].map((el, i) => ({ ...entries[i], keys: parseList(el.querySelector(".lk").value), comment: el.querySelector(".lc").value,
-    priority: parseInt(el.querySelector(".lp").value || "100"), constant: el.querySelector(".lconst").checked, enabled: el.querySelector(".len").checked, content: el.querySelector(".lt").value }));
-  $("loreAdd").onclick = () => { LORE[LORE_SEL] = [...collect(), { keys: [], content: "", comment: "", priority: 100, constant: false, enabled: true, secondary: [], selective: false }]; renderLore(); };
-  box.querySelectorAll(".ldel").forEach((b, i) => b.onclick = () => { const all = collect(); all.splice(i, 1); LORE[LORE_SEL] = all; renderLore(); });
-  $("loreSave").onclick = async () => { const r = await api("/lore/" + encodeURIComponent(LORE_SEL), { method: "PUT", body: { entries: collect() } }); LORE = r.books; toast("保存好了，下一句话就生效"); renderLore(); };
+    <div class="three"><div class="field"><label>${t("关键词（逗号分隔，/正则/ 也行）")}</label><input type="text" class="lk" value="${esc(list(e.keys))}"></div>
+    <div class="field"><label>${t("备注")}</label><input type="text" class="lc" value="${esc(e.comment)}"></div>
+    <div class="field"><label>${t("优先级 · 常驻 · 启用")}</label><div class="row"><input type="number" class="lp" value="${e.priority}" style="width:80px">
+      <label><input type="checkbox" class="lconst" ${e.constant ? "checked" : ""}> ${t("常驻")}</label><label><input type="checkbox" class="len" ${e.enabled ? "checked" : ""}> ${t("启用")}</label>
+      <button class="small danger ldel">${t("删")}</button></div></div></div>
+    <textarea class="lt" placeholder="${esc(t("内容：可以用 {{char}} 指她自己，{{user}} 指正在说话的人"))}">${esc(e.content)}</textarea></div>`).join("") || `<div class="empty">${t("这本还是空的")}</div>`}
+    <div class="row"><button id="loreAdd">${t("+ 加一条")}</button><button class="primary" id="loreSave">${t("保存")}</button></div></div>`;
+  $("loreAdd").onclick = () => { LORE[LORE_SEL] = [...collectLore(), { keys: [], content: "", comment: "", priority: 100, constant: false, enabled: true, secondary: [], selective: false }]; renderLore(); };
+  box.querySelectorAll(".ldel").forEach((b, i) => b.onclick = () => { const all = collectLore(); all.splice(i, 1); LORE[LORE_SEL] = all; renderLore(); });
+  $("loreSave").onclick = async () => { const r = await api("/lore/" + encodeURIComponent(LORE_SEL), { method: "PUT", body: { entries: collectLore() } }); LORE = r.books; toast(t("保存好了，下一句话就生效")); renderLore(); };
 }
 
 // ---------------------------------------------------------------- stickers
 pages.stickers = async () => {
   const items = await api("/stickers");
-  $("main").innerHTML = `<h1>表情包</h1><p class="sub">她按心情发 [meme:关键词]。别人在群里发的表情包她会"偷"一部分，自动看图打标签（在设置里调概率）。也可以把文件夹放进 <code>bots/&lt;名字&gt;/memes/标签名/</code>。</p>
-  <div class="card"><div class="row"><input type="text" id="stTags" class="grow" placeholder="上传时的标签，比如：狗头 无语 嫌弃（不填就用文件名）">
-    <label class="tag" style="cursor:pointer;padding:7px 12px;background:var(--cola);color:#fff">上传图片<input type="file" id="stFiles" accept="image/*" multiple hidden></label></div></div>
+  $("main").innerHTML = `<h1>${t("表情包")}</h1><p class="sub">${t("她按心情发 [meme:关键词]。别人在群里发的表情包她会\"偷\"一部分，自动看图打标签（在设置里调概率）。也可以把文件夹放进 ")}<code>${t("bots/&lt;名字&gt;/memes/标签名/")}</code>${t("。")}</p>
+  <div class="card"><div class="row"><input type="text" id="stTags" class="grow" placeholder="${t("上传时的标签，比如：狗头 无语 嫌弃（不填就用文件名）")}">
+    <label class="tag" style="cursor:pointer;padding:7px 12px;background:var(--cola);color:#fff">${t("上传图片")}<input type="file" id="stFiles" accept="image/*" multiple hidden></label></div></div>
   <div class="card"><div class="stickers">${items.map((s) => `<div class="stk"><img src="${esc(s.url)}" loading="lazy" title="${esc(s.description)}">
-    <input type="text" value="${esc(s.tags.join(" "))}" data-id="${esc(s.id)}" ${s.id.startsWith("b:") ? "disabled title='表情包文件夹里的，改文件夹名'" : ""}>
-    <div class="hint">${esc(s.source === "pack" ? "文件夹" : s.source === "console" ? "上传" : "偷来的")} · 用了 ${s.uses} 次 ${s.id.startsWith("b:") ? "" : `<button class="small danger" data-del="${esc(s.id)}">删</button>`}</div></div>`).join("") || '<div class="empty">还没有表情包</div>'}</div></div>`;
-  $("stFiles").onchange = async (e) => { for (const f of e.target.files) await api("/stickers", { method: "POST", body: { filename: f.name, data: await readFile(f), tags: $("stTags").value } }); toast("上传好了"); pages.stickers(); };
-  document.querySelectorAll(".stk input[data-id]").forEach((inp) => inp.onchange = async () => { await api("/stickers/" + inp.dataset.id, { method: "PATCH", body: { tags: inp.value } }); toast("标签改好了"); });
+    <input type="text" value="${esc(s.tags.join(" "))}" data-id="${esc(s.id)}" ${s.id.startsWith("b:") ? `disabled title="${t("表情包文件夹里的，改文件夹名")}"` : ""}>
+    <div class="hint">${t(s.source === "pack" ? "文件夹" : s.source === "console" ? "上传" : "偷来的")} · ${t("用了 {n} 次", { n: s.uses })} ${s.id.startsWith("b:") ? "" : `<button class="small danger" data-del="${esc(s.id)}">${t("删")}</button>`}</div></div>`).join("") || `<div class="empty">${t("还没有表情包")}</div>`}</div></div>`;
+  $("stFiles").onchange = async (e) => { for (const f of e.target.files) await api("/stickers", { method: "POST", body: { filename: f.name, data: await readFile(f), tags: $("stTags").value } }); toast(t("上传好了")); pages.stickers(); };
+  document.querySelectorAll(".stk input[data-id]").forEach((inp) => inp.onchange = async () => { await api("/stickers/" + inp.dataset.id, { method: "PATCH", body: { tags: inp.value } }); toast(t("标签改好了")); });
   document.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { await api("/stickers/" + b.dataset.del, { method: "DELETE" }); pages.stickers(); });
 };
 
@@ -230,71 +240,79 @@ pages.stickers = async () => {
 pages.plugins = async () => {
   const p = await api("/plugins");
   const installed = new Set(p.servers.map((s) => s.name));
-  const st = { running: '<span class="tag run">运行中</span>', starting: '<span class="tag">启动中</span>', error: '<span class="tag bad">出错</span>', disabled: '<span class="tag">已停用</span>', stopped: '<span class="tag">未运行</span>' };
-  $("main").innerHTML = `<h1>插件</h1><p class="sub">GitHub 上成千上万的 MCP 服务器都能直接当她的工具用。配置文件 <code>${esc(p.path)}</code> 和 Claude Desktop / Cursor 的 <code>mcpServers</code> 格式一样，README 里的配置可以原样粘进来。</p>
-  <div class="card"><h3 style="margin-top:0">推荐</h3>${p.recommended.map((r) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${esc(r.title)}</b> <span class="hint">${esc(r.name)}</span><div class="hint">${esc(r.desc)} · <a href="${esc(r.repo)}" target="_blank" rel="noopener">GitHub</a> · <code>${esc(r.config.command + " " + r.config.args.join(" "))}</code></div></div>
-    ${installed.has(r.name) ? '<span class="tag ok">已添加</span>' : `<button class="small primary" data-rec="${esc(r.name)}">添加</button>`}</div>`).join("")}</div>
-  <div class="card"><h3 style="margin-top:0">已添加</h3>${p.servers.map((s) => `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row"><b class="grow">${esc(s.name)}</b>${st[s.status] || esc(s.status)}
-    <button class="small" data-restart="${esc(s.name)}">重启</button><button class="small" data-toggle="${esc(s.name)}">${s.config.disabled ? "启用" : "停用"}</button><button class="small danger" data-remove="${esc(s.name)}">删除</button></div>
+  const st = { running: `<span class="tag run">${t("运行中")}</span>`, starting: `<span class="tag">${t("启动中")}</span>`, error: `<span class="tag bad">${t("出错")}</span>`, disabled: `<span class="tag">${t("已停用")}</span>`, stopped: `<span class="tag">${t("未运行")}</span>` };
+  $("main").innerHTML = `<h1>${t("插件")}</h1><p class="sub">${t("GitHub 上成千上万的 MCP 服务器都能直接当她的工具用。配置文件 ")}<code>${esc(p.path)}</code>${t(" 和 Claude Desktop / Cursor 的 ")}<code>mcpServers</code>${t(" 格式一样，README 里的配置可以原样粘进来。")}</p>
+  <div class="card"><h3 style="margin-top:0">${t("推荐")}</h3>${p.recommended.map((r) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${esc(tr(r.title))}</b> <span class="hint">${esc(r.name)}</span><div class="hint">${esc(tr(r.desc))} · <a href="${esc(r.repo)}" target="_blank" rel="noopener">GitHub</a> · <code>${esc(r.config.command + " " + r.config.args.join(" "))}</code></div></div>
+    ${installed.has(r.name) ? `<span class="tag ok">${t("已添加")}</span>` : `<button class="small primary" data-rec="${esc(r.name)}">${t("添加")}</button>`}</div>`).join("")}</div>
+  <div class="card"><h3 style="margin-top:0">${t("已添加")}</h3>${p.servers.map((s) => `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row"><b class="grow">${esc(s.name)}</b>${st[s.status] || esc(s.status)}
+    <button class="small" data-restart="${esc(s.name)}">${t("重启")}</button><button class="small" data-toggle="${esc(s.name)}">${s.config.disabled ? t("启用") : t("停用")}</button><button class="small danger" data-remove="${esc(s.name)}">${t("删除")}</button></div>
     <div class="hint"><code>${esc(s.config.url || [s.config.command, ...(s.config.args || [])].join(" "))}</code></div>
     ${s.error ? `<div class="hint" style="color:var(--bad)">${esc(s.error)}</div>` : ""}
-    <div>${s.tools.map((t) => `<span class="tag" title="${esc(t.description)}">${esc(t.name)}</span>`).join("")}</div></div>`).join("") || '<div class="empty">还没有插件</div>'}</div>
-  <div class="card"><h3 style="margin-top:0">添加任意 MCP 服务器</h3>
-    <div class="two"><div class="field"><label>名字</label><input type="text" id="plName" placeholder="比如 bilibili"></div>
-    <div class="field"><label>远程地址（Streamable HTTP，和下面二选一）</label><input type="text" id="plUrl" placeholder="https://…/mcp"></div></div>
-    <div class="field"><label>或者粘贴 JSON（一个服务器的配置，或整段 {"mcpServers": {...}}）</label><textarea id="plJson" class="code" style="min-height:120px" placeholder='{"command": "npx", "args": ["-y", "某个-mcp"], "env": {"API_KEY": "…"}}'></textarea></div>
-    <button class="primary" id="plAdd">添加并启动</button><span class="hint"> 第一次启动可能要下载依赖，等一会儿</span></div>`;
+    <div>${s.tools.map((x) => `<span class="tag" title="${esc(x.description)}">${esc(x.name)}</span>`).join("")}</div></div>`).join("") || `<div class="empty">${t("还没有插件")}</div>`}</div>
+  <div class="card"><h3 style="margin-top:0">${t("添加任意 MCP 服务器")}</h3>
+    <div class="two"><div class="field"><label>${t("名字")}</label><input type="text" id="plName" placeholder="${t("比如 bilibili")}"></div>
+    <div class="field"><label>${t("远程地址（Streamable HTTP，和下面二选一）")}</label><input type="text" id="plUrl" placeholder="https://…/mcp"></div></div>
+    <div class="field"><label>${esc(t("或者粘贴 JSON（一个服务器的配置，或整段 {\"mcpServers\": {...}}）"))}</label><textarea id="plJson" class="code" style="min-height:120px" placeholder='{"command": "npx", "args": ["-y", "some-mcp"], "env": {"API_KEY": "…"}}'></textarea></div>
+    <button class="primary" id="plAdd">${t("添加并启动")}</button><span class="hint">${t(" 第一次启动可能要下载依赖，等一会儿")}</span></div>`;
   const reload = () => pages.plugins();
-  const save = async (name, config) => { toast(`正在启动 ${name}…`); try { await api("/plugins/" + encodeURIComponent(name), { method: "PUT", body: { config } }); toast(`${name} 好了`); } catch (e) { toast(e.message); } reload(); };
+  const save = async (name, config) => { toast(t("正在启动 {name}…", { name })); try { await api("/plugins/" + encodeURIComponent(name), { method: "PUT", body: { config } }); toast(t("{name} 好了", { name })); } catch (e) { toast(e.message); } reload(); };
   document.querySelectorAll("[data-rec]").forEach((b) => b.onclick = () => { const r = p.recommended.find((x) => x.name === b.dataset.rec); b.disabled = true; save(r.name, r.config); });
   document.querySelectorAll("[data-restart]").forEach((b) => b.onclick = async () => { b.disabled = true; await api(`/plugins/${encodeURIComponent(b.dataset.restart)}/restart`, { method: "POST" }); reload(); });
   document.querySelectorAll("[data-toggle]").forEach((b) => b.onclick = async () => { await api(`/plugins/${encodeURIComponent(b.dataset.toggle)}/toggle`, { method: "POST" }); reload(); });
-  document.querySelectorAll("[data-remove]").forEach((b) => b.onclick = async () => { if (confirm("删除这个插件？")) { await api("/plugins/" + encodeURIComponent(b.dataset.remove), { method: "DELETE" }); reload(); } });
+  document.querySelectorAll("[data-remove]").forEach((b) => b.onclick = async () => { if (confirm(t("删除这个插件？"))) { await api("/plugins/" + encodeURIComponent(b.dataset.remove), { method: "DELETE" }); reload(); } });
   $("plAdd").onclick = async () => {
     const raw = $("plJson").value.trim();
     if (raw) {
-      let cfg; try { cfg = JSON.parse(raw); } catch { return toast("JSON 格式不对"); }
+      let cfg; try { cfg = JSON.parse(raw); } catch { return toast(t("JSON 格式不对")); }
       const servers = cfg.mcpServers || { [$("plName").value.trim() || "plugin"]: cfg };
       for (const [name, conf] of Object.entries(servers)) await save(name, conf);
     } else if ($("plUrl").value.trim() && $("plName").value.trim()) await save($("plName").value.trim(), { url: $("plUrl").value.trim() });
-    else toast("填名字和地址，或者粘贴 JSON");
+    else toast(t("填名字和地址，或者粘贴 JSON"));
   };
 };
 
 // ---------------------------------------------------------------- settings
 pages.settings = async () => {
   const s = await api("/settings"), v = s.values;
-  const f = (k, label, hint = "", type = "text") => `<div class="field"><label>${label}</label>${type === "bool" ? `<label><input type="checkbox" data-k="${k}" ${v[k] ? "checked" : ""}> 开</label>`
-    : type === "select" ? `<select data-k="${k}">${Object.entries(hint).map(([val, l]) => `<option value="${val}" ${v[k] === val ? "selected" : ""}>${l}</option>`).join("")}</select>`
-    : `<input type="${type}" step="0.01" data-k="${k}" data-type="${type}" value="${esc(Array.isArray(v[k]) ? list(v[k]) : v[k] ?? "")}">`}${type !== "select" && hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
+  const f = (k, label, hint = "", type = "text") => `<div class="field"><label>${t(label)}</label>${type === "bool" ? `<label><input type="checkbox" data-k="${k}" ${v[k] ? "checked" : ""}> ${t("开")}</label>`
+    : type === "select" ? `<select data-k="${k}">${Object.entries(hint).map(([val, l]) => `<option value="${val}" ${v[k] === val ? "selected" : ""}>${t(l)}</option>`).join("")}</select>`
+    : `<input type="${type}" step="0.01" data-k="${k}" data-type="${type}" value="${esc(Array.isArray(v[k]) ? list(v[k]) : v[k] ?? "")}">`}${type !== "select" && hint ? `<div class="hint">${t(hint)}</div>` : ""}</div>`;
   const policy = { accept: "全部同意", smart: "认识的人和带暗号的同意，其他问我", owner: "都问我", ignore: "不理" };
-  $("main").innerHTML = `<h1>设置</h1><p class="sub">保存后写回 <code>bots/…/bot.toml</code>（保留注释）。大多数立刻生效；开关平台和直播间要重启。</p>
-  <div class="card"><h3 style="margin-top:0">她是谁、谁是主人</h3><div class="two">${f("display_name", "名字")}${f("aliases", "别名（群里叫这些她会回）", "逗号分隔", "list")}</div>
+  $("main").innerHTML = `<h1>${t("设置")}</h1><p class="sub">${t("保存后写回 ")}<code>bots/…/bot.toml</code>${t("（保留注释）。大多数立刻生效；开关平台和直播间要重启。")}</p>
+  <div class="card"><h3 style="margin-top:0">${t("她是谁、谁是主人")}</h3><div class="two">${f("display_name", "名字")}${f("aliases", "别名（群里叫这些她会回）", "逗号分隔", "list")}</div>
     ${f("owners", "主人（可以用 / 命令管理她）", "格式 平台:账号，比如 qq:123456，逗号分隔；本机后台和聊天窗口永远是主人", "list")}</div>
-  <div class="card"><h3 style="margin-top:0">说话习惯</h3><div class="three">${f("group_chattiness", "群里主动插话的概率", "0~1，0.08 大约每十几条插一句", "number")}${f("cooldown_seconds", "说完话后冷静多久（秒）", "", "number")}${f("collect_stickers", "看到表情包时收藏的概率", "0 就不偷了", "number")}</div>
+  <div class="card"><h3 style="margin-top:0">${t("说话习惯")}</h3><div class="three">${f("group_chattiness", "群里主动插话的概率", "0~1，0.08 大约每十几条插一句", "number")}${f("cooldown_seconds", "说完话后冷静多久（秒）", "", "number")}${f("collect_stickers", "看到表情包时收藏的概率", "0 就不偷了", "number")}</div>
     ${f("interests", "她感兴趣的话题（提到就更想插话）", "逗号分隔", "list")}
     <div class="three">${f("delays", "真人节奏（打字延迟、不秒回）", "", "bool")}${f("caption_images", "看图后把图片内容记进记忆", "", "bool")}${f("recall", "聊天时自动想起相关的往事", "", "bool")}</div></div>
-  <div class="card"><h3 style="margin-top:0">生活</h3><div class="three">${f("daily_plan", "每天早上安排自己的一天", "", "bool")}${f("diary", "每晚写日记", "", "bool")}${f("diary_time", "写日记的时间", "北京时间 HH:MM")}</div>
+  <div class="card"><h3 style="margin-top:0">${t("生活")}</h3><div class="three">${f("daily_plan", "每天早上安排自己的一天", "", "bool")}${f("diary", "每晚写日记", "", "bool")}${f("diary_time", "写日记的时间", "北京时间 HH:MM")}</div>
     <div class="two">${f("idle_chatter", "群里太安静时冒个泡", "", "bool")}${f("greet_groups", "早上打招呼的群", "比如 qq:group:123456，逗号分隔", "list")}</div></div>
   <div class="card"><h3 style="margin-top:0">QQ</h3><div class="three">${f("qq.enabled", "启用（需重启）", "", "bool")}${f("qq.friend_requests", "好友请求", policy, "select")}${f("qq.group_invites", "群邀请", policy, "select")}</div>
     <div class="three">${f("qq.groups", "可以发言的群号", "逗号分隔", "numlist")}${f("qq.listen_groups", "只旁听的群号", "", "numlist")}${f("qq.friend_keywords", "加好友暗号", "申请备注里有这些词就自动同意", "list")}</div></div>
-  <div class="card"><h3 style="margin-top:0">其他平台（需重启）</h3><div class="three">${f("bilibili.enabled", "B站", "", "bool")}${f("bilibili.live_rooms", "B站直播间号", "", "numlist")}${f("bilibili.post_diary", "日记发成 B站动态", "", "bool")}</div>
+  <div class="card"><h3 style="margin-top:0">${t("其他平台（需重启）")}</h3><div class="three">${f("bilibili.enabled", "B站", "", "bool")}${f("bilibili.live_rooms", "B站直播间号", "", "numlist")}${f("bilibili.post_diary", "日记发成 B站动态", "", "bool")}</div>
     <div class="three">${f("wechat.enabled", "微信公众号", "", "bool")}${f("douyin.enabled", "抖音（实验）", "", "bool")}${f("douyin.live_rooms", "抖音直播间号", "", "list")}</div></div>
-  <div class="card"><h3 style="margin-top:0">人设（改完下一句就生效）</h3><div class="field"><label>persona.md：她是谁、性格、说话方式、底线</label><textarea id="persona" class="code">${esc(s.persona)}</textarea></div>
-    <div class="field"><label>examples.md：聊天示例（她会学语气）</label><textarea id="examples" class="code" style="min-height:180px">${esc(s.examples)}</textarea></div></div>
-  <button class="primary" id="saveSettings" style="padding:10px 22px">保存全部</button>`;
+  <div class="card"><h3 style="margin-top:0">${t("人设（改完下一句就生效）")}</h3><div class="field"><label>${t("persona.md：她是谁、性格、说话方式、底线")}</label><textarea id="persona" class="code">${esc(s.persona)}</textarea></div>
+    <div class="field"><label>${t("examples.md：聊天示例（她会学语气）")}</label><textarea id="examples" class="code" style="min-height:180px">${esc(s.examples)}</textarea></div></div>
+  <button class="primary" id="saveSettings" style="padding:10px 22px">${t("保存全部")}</button>`;
   $("saveSettings").onclick = async () => {
     const values = {};
     document.querySelectorAll("[data-k]").forEach((el) => {
-      const k = el.dataset.k, t = el.dataset.type;
-      values[k] = el.type === "checkbox" ? el.checked : t === "number" ? parseFloat(el.value) : t === "list" ? parseList(el.value) : t === "numlist" ? parseList(el.value, true) : el.value;
+      const k = el.dataset.k, type = el.dataset.type;
+      values[k] = el.type === "checkbox" ? el.checked : type === "number" ? parseFloat(el.value) : type === "list" ? parseList(el.value) : type === "numlist" ? parseList(el.value, true) : el.value;
     });
     try { const r = await api("/settings", { method: "PUT", body: { values, persona: $("persona").value, examples: $("examples").value } });
-      toast(r.changed.length ? `保存好了：${r.changed.length} 项${r.restart.length ? "（" + r.restart.join("、") + " 要重启才生效）" : ""}` : "没有改动"); }
+      toast(r.changed.length ? t("保存好了：{n} 项", { n: r.changed.length }) + (r.restart.length ? t("（{list} 要重启才生效）", { list: r.restart.join(sep()) }) : "") : t("没有改动")); }
     catch (e) { toast(e.message); }
   };
 };
 
+I18N.mount();
+// Pages redraw in the new language; I18N puts back whatever was typed but not saved.
+I18N.onChange(async () => {
+  const page = current(), person = PERSON;
+  if (page === "lore" && LORE && LORE_SEL) { LORE[LORE_SEL] = collectLore(); await pages.lore(false); }
+  else await (pages[page] || pages.overview)();
+  if (person) await openPerson(person);
+});
 route();
 api("/overview").then((o) => { $("botName").textContent = o.bot; if (o.requests) { $("reqBadge").style.display = ""; $("reqBadge").textContent = o.requests; } }).catch(() => {});
 </script>

@@ -45,5 +45,12 @@ button.primary:hover, .btn.primary:hover { background: var(--cola2); }
 .row.me .bubble { background: var(--cola) !important; }
 .tag.use, .tag.run { background: var(--ok); }
 .pill b, .avatar .zzz { color: var(--cola); }
+/* 中 / EN: two characters on one quiet seal, the current one inked. */
+.lang-toggle { display: inline-flex; align-items: center; gap: 0; padding: 2px !important; border: 1px solid var(--line) !important;
+  border-radius: 999px !important; background: var(--panel2) !important; font: 500 12px/1 var(--serif) !important; cursor: pointer; flex: none; }
+.lang-toggle span { padding: 5px 9px; border-radius: 999px; color: var(--ink3); letter-spacing: .06em; transition: color .2s, background .2s; }
+.lang-toggle[data-lang="zh"] span[data-l="zh"], .lang-toggle[data-lang="en"] span[data-l="en"] { background: var(--panel); color: var(--cola); box-shadow: 0 1px 3px rgba(35, 46, 44, .12); }
+.lang-toggle:hover { border-color: var(--ink3) !important; }
+.lang-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--cola) 45%, transparent); outline-offset: 2px; }
 ::selection { background: color-mix(in srgb, var(--ok) 30%, transparent); }
 a { text-underline-offset: 3px; }

@@ -43,3 +43,6 @@ Anima is a Python engine for human-like social bots; each bot is a folder under 
 - She never claims to be human when sincerely asked. Don't weaken that in prompts.
 - She speaks only in QQ groups listed in `bot.toml`; keep group opt-in.
 - Platform actions that publish (posting, sending to real accounts) need the owner's go-ahead before you run them live.
+- Every web page has the 中 / EN toggle (`static/i18n.js`: a `data-lang-slot` element, `I18N.mount()`, `I18N.onChange`
+  to redraw). Chinese is the source text: script-rendered words go through `t("…", {vars})`, server-sent ones through
+  `tr()`, and each needs an English entry in `EN` (a test checks `t()` literals). Never translate her own words.
