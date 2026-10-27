@@ -29,6 +29,20 @@ SETTINGS: dict[str, tuple[str, str]] = {
     "caption_images": ("behavior", "caption_images"),
     "collect_stickers": ("behavior", "collect_stickers"),
     "recall": ("behavior", "recall"),
+    "debounce_private": ("behavior", "debounce_private"),
+    "debounce_group": ("behavior", "debounce_group"),
+    "debounce_max": ("behavior", "debounce_max"),
+    "interrupt": ("behavior", "interrupt"),
+    "typing_cps": ("behavior", "typing_cps"),
+    "bubble_split": ("behavior", "bubble_split"),
+    "reply_budget": ("behavior", "reply_budget"),
+    "max_bubbles": ("behavior", "max_bubbles"),
+    "group_max_bubbles": ("behavior", "group_max_bubbles"),
+    "follow_up_seconds": ("behavior", "follow_up_seconds"),
+    "interjections_per_hour": ("behavior", "interjections_per_hour"),
+    "repeat_chance": ("behavior", "repeat_chance"),
+    "auto_quote": ("behavior", "auto_quote"),
+    "name_false_friends": ("behavior", "name_false_friends"),
     "daily_plan": ("life", "daily_plan"),
     "diary": ("life", "diary"),
     "diary_time": ("life", "diary_time"),
@@ -48,6 +62,7 @@ SETTINGS: dict[str, tuple[str, str]] = {
     "douyin.live_rooms": ("platforms.douyin", "live_rooms"),
 }
 NEEDS_RESTART = {k for k in SETTINGS if k.endswith(".enabled") or k.endswith("live_rooms")}
+CHAT_FIELDS = ("mode", "chattiness", "debounce", "max_bubbles", "repeat_chance", "note")
 
 
 def _decode(payload: dict[str, Any]) -> bytes:
@@ -281,11 +296,34 @@ def console_router(runtime: Runtime) -> APIRouter:
     def toml_path():
         return runtime.bot.dir / "bot.toml"
 
+    async def chat_rows(doc: Any) -> list[dict[str, Any]]:
+        """Every group she can see, with its overrides (blank = follow the defaults)."""
+        saved = (doc.get("chats") or {}).unwrap() if doc.get("chats") else {}
+        keys: dict[str, str] = {}
+        qq = (doc.get("platforms") or {}).get("qq") or {}
+        for g in [*(qq.get("groups") or []), *(qq.get("listen_groups") or [])]:
+            keys[f"qq:group:{g}"] = ""
+        for row in await memory.chats():
+            if row.get("kind") == "group" and (row["key"] in keys or row["key"] in saved):
+                keys[row["key"]] = row.get("title") or ""
+        for key in saved:
+            keys.setdefault(key, "")
+        return [{"key": k, "title": title, **{f: (saved.get(k) or {}).get(f) for f in CHAT_FIELDS}}
+                for k, title in keys.items()]
+
+    def effective(doc: Any, section: str, key: str) -> Any:
+        """The value in bot.toml, or the built-in default she is actually using."""
+        value = _get(doc, section, key)
+        if value is None and section in ("behavior", "life", "identity"):
+            value = getattr(getattr(brain.cfg, section), key, None)
+        return value
+
     @router.get("/settings")
     async def settings() -> dict[str, Any]:
         doc = tomlkit.parse(toml_path().read_text(encoding="utf-8"))
         return {
-            "values": {name: _get(doc, sec, key) for name, (sec, key) in SETTINGS.items()},
+            "values": {name: effective(doc, sec, key) for name, (sec, key) in SETTINGS.items()},
+            "chats": await chat_rows(doc),
             "persona": runtime.bot.read("persona.md"),
             "examples": runtime.bot.read("examples.md"),
             "needs_restart": sorted(NEEDS_RESTART),
@@ -296,9 +334,28 @@ def console_router(runtime: Runtime) -> APIRouter:
         doc = tomlkit.parse(toml_path().read_text(encoding="utf-8"))
         changed = []
         for name, value in (body.get("values") or {}).items():
-            if name in SETTINGS and _get(doc, *SETTINGS[name]) != value:
+            if name in SETTINGS and effective(doc, *SETTINGS[name]) != value:
                 _set(doc, *SETTINGS[name], value)
                 changed.append(name)
+        if isinstance(body.get("chats"), dict):
+            if "chats" not in doc:
+                doc["chats"] = tomlkit.table(is_super_table=True)
+            table = doc["chats"]
+            for key, fields in body["chats"].items():
+                clean = {f: v for f, v in (fields or {}).items()
+                         if f in CHAT_FIELDS and v not in (None, "") and not (f == "mode" and v == "normal")}
+                old = table[key].unwrap() if key in table else {}
+                if clean != old:
+                    changed.append(f"chats.{key}")
+                    if clean:
+                        sub = tomlkit.table()
+                        for f, v in clean.items():
+                            sub[f] = v
+                        table[key] = sub
+                    elif key in table:
+                        del table[key]
+            if not table:
+                del doc["chats"]
         new_cfg = BotConfig.model_validate(doc.unwrap())  # refuse anything that wouldn't load
         toml_path().write_text(tomlkit.dumps(doc), encoding="utf-8")
         for name in ("persona", "examples"):
@@ -307,7 +364,7 @@ def console_router(runtime: Runtime) -> APIRouter:
                 changed.append(name)
         # Live: behaviour, life, owners, names, QQ groups. Platforms switching on/off need a restart.
         cfg = brain.cfg
-        cfg.owners, cfg.behavior, cfg.life = new_cfg.owners, new_cfg.behavior, new_cfg.life
+        cfg.owners, cfg.behavior, cfg.life, cfg.chats = new_cfg.owners, new_cfg.behavior, new_cfg.life, new_cfg.chats
         cfg.identity, cfg.platforms = new_cfg.identity, new_cfg.platforms
         brain.policy.cfg = new_cfg.behavior
         brain.policy.aliases = [a.lower() for a in [*new_cfg.identity.aliases, new_cfg.identity.name,

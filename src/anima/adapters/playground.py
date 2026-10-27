@@ -6,6 +6,7 @@ can speak as anyone, to see how she behaves when she isn't the centre of attenti
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from typing import Any
@@ -53,8 +54,9 @@ class PlaygroundAdapter(Adapter):
             if not text and not images:
                 return
             alias = self.brain.cfg.identity.display_name
+            others = [n for n in re.findall(r"@(\S+)", text) if n != alias]  # @-ing someone else in the group
             ev = Incoming(chat, sender, text, message_id=msg_id, images=images,
-                          mentions_me=f"@{alias}" in text)
+                          mentions_me=f"@{alias}" in text, meta={"at": others})
         await self.broadcast({
             "type": "user_message", "chat": chat.key, "id": msg_id, "speaker": speaker,
             "text": ev.text, "kind": ev.kind, "image": payload.get("image"), "ts": time.time(),

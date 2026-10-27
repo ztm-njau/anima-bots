@@ -294,6 +294,18 @@ async def test_console_settings_people_and_stickers(scratch_bot, monkeypatch):
             assert 'owners = ["qq:12345"]' in toml and "group_chattiness = 0.2" in toml
             assert "# Claudette (可乐)" in toml, "comments survive"
             assert runtime.brain.cfg.owners == ["qq:12345"] and runtime.brain.policy.cfg.group_chattiness == 0.2
+            s = (await client.get("/api/console/settings")).json()
+            assert [c["key"] for c in s["chats"]] == ["qq:group:111", "qq:group:222"]
+            chats = {"qq:group:111": {"mode": "quiet", "chattiness": None, "note": "天文社"},
+                     "qq:group:222": {"mode": "normal", "debounce": 6}}
+            r = (await client.put("/api/console/settings", json={"values": {}, "chats": chats})).json()
+            assert set(r["changed"]) == {"chats.qq:group:111", "chats.qq:group:222"}
+            toml = (runtime.bot.dir / "bot.toml").read_text()
+            assert '[chats."qq:group:111"]' in toml and 'mode = "quiet"' in toml and "debounce = 6" in toml
+            assert runtime.brain.cfg.behavior_for("qq:group:111").group_chattiness == 0
+            assert runtime.brain.cfg.behavior_for("qq:group:222").debounce_group == 6
+            r = (await client.put("/api/console/settings", json={"values": {}, "chats": {"qq:group:111": {"mode": "normal"}}})).json()
+            assert '"qq:group:111"' not in (runtime.bot.dir / "bot.toml").read_text(), "a row back to defaults disappears"
             await runtime.memory.touch_user("qq", "42", "小明")
             await client.patch("/api/console/people/qq:42", json={"profile": "考研党，喜欢猫", "blocked": True})
             p = (await client.get("/api/console/people/qq:42")).json()

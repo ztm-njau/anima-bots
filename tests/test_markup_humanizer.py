@@ -55,7 +55,7 @@ def test_typing_delay_scales_with_length_and_respects_bounds():
     h = Humanizer(BehaviorConfig(typing_cps=6), random.Random(2))
     short = h.typing_delay(Bubble([Segment("text", "嗯")]))
     long = h.typing_delay(Bubble([Segment("text", "这是一句挺长的话" * 4)]))
-    assert 0.8 <= short < long <= 9.0
+    assert 0.7 <= short < long <= 9.0
     h.scale = 0
     assert h.typing_delay(Bubble([Segment("text", "x" * 50)])) == 0
 

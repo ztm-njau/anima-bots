@@ -2,6 +2,46 @@
 
 ```
 adapter ──Incoming──▶ Brain.handle
+                        │ record message, update person   (撤回 → Brain.retract forgets it)
+                        ▼
+                 debounce per chat (core/debounce.py): 2.5 s DM / 4 s group, longer when a line
+                 trails off, shorter after a question, following the sender's rhythm, max 12 s;
+                 in groups only people talking to her extend the wait
+                        ▼
+                 Policy.decide ── ignore (stay quiet, still remembers)
+                        │       ├ defer  (asleep: answered by wake_up())
+                        │       └ echo   (join a 复读 chain, no model call)
+                        ▼ reply, with a target: the message she mainly answers
+                 notice delay (by availability) → mark read → reading delay
+                        ▼
+                 compose: history + scene → LLM (tool loop) → markup → humanizer → guard
+                        │  new words from them while she typed → compose again (twice at most)
+                        ▼
+                 deliver: think, then per-bubble typing (fits reply_budget) → adapter.send
+                        │  interrupted mid-reply → stop; the unsent rest becomes a note next turn
+                        ▼
+                 every ~16 messages: reflection (facts, affinity, nicknames, birthdays, treasures)
+```
+
+### Group judgement (core/policy.py)
+
+- Always answers an @, a reply to her, a poke, or her name used as a call ("可乐你…", "问问可乐").
+  Words like 喝可乐 or 可乐鸡翅 are `name_false_friends`, not calls; her name mentioned in passing
+  only makes her likelier to look.
+- Keeps talking with whoever she just answered (`follow_up_seconds`) unless they @ or reply to
+  someone else, and answers people who answer her question.
+- Otherwise chimes in by chance: interests raise it; cooldown, talking a lot, a fast-moving group,
+  people talking to each other and `interjections_per_hour` lower it.
+- When the group has moved on she quotes the message she answers (`auto_quote`).
+- `[chats."<key>"]` in bot.toml (or the console) tunes one chat: mode quiet / lively, chattiness,
+  wait, bubbles, 复读, and a note she reads every turn.
+
+### Bubbles (core/segment.py)
+
+Lines longer than `bubble_split` are cut at sentence ends (a question ends its bubble), very long
+sentences at commas; links, numbers, quotes, brackets and kaomoji are never cut, and a run with
+nowhere safe to cut stays whole. Groups get at most `group_max_bubbles`.
+adapter ──Incoming──▶ Brain.handle
                         │ record message, update person
                         ▼
                  debounce per chat (2.5 s DM / 4 s group, max 12 s)
@@ -17,6 +57,46 @@ adapter ──Incoming──▶ Brain.handle
                         ▼
                  every ~16 messages: reflection (facts, affinity, nicknames, birthdays, treasures)
 ```
+adapter ──Incoming──▶ Brain.handle
+                        │ record message, update person   (撤回 → Brain.retract forgets it)
+                        ▼
+                 debounce per chat (core/debounce.py): 2.5 s DM / 4 s group, longer when a line
+                 trails off, shorter after a question, following the sender's rhythm, max 12 s;
+                 in groups only people talking to her extend the wait
+                        ▼
+                 Policy.decide ── ignore (stay quiet, still remembers)
+                        │       ├ defer  (asleep: answered by wake_up())
+                        │       └ echo   (join a 复读 chain, no model call)
+                        ▼ reply, with a target: the message she mainly answers
+                 notice delay (by availability) → mark read → reading delay
+                        ▼
+                 compose: history + scene → LLM (tool loop) → markup → humanizer → guard
+                        │  new words from them while she typed → compose again (twice at most)
+                        ▼
+                 deliver: think, then per-bubble typing (fits reply_budget) → adapter.send
+                        │  interrupted mid-reply → stop; the unsent rest becomes a note next turn
+                        ▼
+                 every ~16 messages: reflection (facts, affinity, nicknames, birthdays, treasures)
+```
+
+### Group judgement (core/policy.py)
+
+- Always answers an @, a reply to her, a poke, or her name used as a call ("可乐你…", "问问可乐").
+  Words like 喝可乐 or 可乐鸡翅 are `name_false_friends`, not calls; her name mentioned in passing
+  only makes her likelier to look.
+- Keeps talking with whoever she just answered (`follow_up_seconds`) unless they @ or reply to
+  someone else, and answers people who answer her question.
+- Otherwise chimes in by chance: interests raise it; cooldown, talking a lot, a fast-moving group,
+  people talking to each other and `interjections_per_hour` lower it.
+- When the group has moved on she quotes the message she answers (`auto_quote`).
+- `[chats."<key>"]` in bot.toml (or the console) tunes one chat: mode quiet / lively, chattiness,
+  wait, bubbles, 复读, and a note she reads every turn.
+
+### Bubbles (core/segment.py)
+
+Lines longer than `bubble_split` are cut at sentence ends (a question ends its bubble), very long
+sentences at commas; links, numbers, quotes, brackets and kaomoji are never cut, and a run with
+nowhere safe to cut stays whole. Groups get at most `group_max_bubbles`.
 
 `Life` runs beside it every 30 s: morning plan, nightly diary, reminders, greetings, birthdays,
 breaking long silences, and waking up (which answers what piled up overnight).

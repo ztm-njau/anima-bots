@@ -49,7 +49,9 @@ const I18N = (() => {
     // why she spoke or kept quiet (policy.py)
     "没有新消息": "nothing new", "这里只旁听，不发言": "listen-only here", "睡着了，醒来再回": "asleep, will reply on waking",
     "被戳了": "poked", "有人叫她/回复她": "someone called or replied to her", "评论区只回复@和回复她的": "comments: only @s and replies",
-    "这次不插话": "not chiming in this time", "话题戳中她的兴趣": "the topic caught her interest", "想接一句": "felt like chiming in",
+    "这次不插话": "not chiming in this time", "接着刚才的话题": "carrying on the conversation", "话题被别人接走了": "someone else took the thread",
+    "有人回答了她的问题": "someone answered her question", "大家在复读，跟一个": "everyone is repeating; she joins in",
+    "这个小时已经插过好几次话了": "she has chimed in enough this hour", "有人在说她": "people are talking about her", "话题戳中她的兴趣": "the topic caught her interest", "想接一句": "felt like chiming in",
     "还没接上真正的模型，在真实平台上先不说话": "no real model yet, staying quiet on real platforms", "刚醒，回复昨晚的消息": "just woke, answering last night's messages",
 
     // ------------------------------------------------------------ providers
@@ -181,6 +183,24 @@ const I18N = (() => {
     "persona.md：她是谁、性格、说话方式、底线": "persona.md: who she is, personality, voice, boundaries",
     "examples.md：聊天示例（她会学语气）": "examples.md: example chats (she picks up the tone)", "保存全部": "Save all",
     "保存好了：{n} 项": (v) => (+v.n === 1 ? "Saved: 1 change" : `Saved: ${v.n} changes`), "（{list} 要重启才生效）": " ({list} need a restart)", "没有改动": "Nothing changed",
+    "节奏：等你说完、分段发、群里的分寸": "Rhythm: waiting for you to finish, sending in bubbles, group manners",
+    "私聊等对方说完（秒）": "Wait for them to finish in DMs (seconds)", "话没说完（「然后，」「在吗」）会再多等一会": "Waits a bit longer when a line trails off (“然后，” “在吗”)",
+    "群聊等多久（秒）": "Wait in groups (seconds)", "群里只有对她说话的人会让她多等": "In groups only people talking to her make her wait longer",
+    "最多等多久（秒）": "Longest wait (seconds)", "从第一条算起": "Counted from the first message",
+    "打字时你补了一句，她会改口；发到一半会停下": "Rethink when you add something while she types; stop mid-reply",
+    "打字速度（字/秒）": "Typing speed (characters/second)", "手机大约 5~7": "About 5–7 on a phone",
+    "一次回复最多打多久（秒）": "Longest typing time per reply (seconds)", "话多时会打快一点": "She types faster when she has a lot to say",
+    "一个气泡超过多少字就按句子拆开": "Split a bubble at sentence breaks past this many characters",
+    "私聊最多几个气泡": "Most bubbles per reply in DMs", "群聊最多几个气泡": "Most bubbles per reply in groups",
+    "刚回过的人接着说，算在跟她聊（秒）": "Someone she just answered is still talking to her for (seconds)",
+    "每个群每小时最多主动插话几次": "Most unprompted chime-ins per group per hour", "被叫到不算": "Being called doesn't count",
+    "大家复读时她跟一个的概率": "Chance she joins a repeat chain", "0~1": "0–1",
+    "群里话题已经过去时，引用她回的那条": "Quote the message she answers once the group has moved on",
+    "含她名字但不是叫她的词": "Words that contain her name but aren't about her", "比如 喝可乐、可乐鸡翅，逗号分隔": "e.g. 喝可乐, 可乐鸡翅; comma-separated",
+    "每个群单独调": "Per-group tuning", "留空就跟上面的默认值一样。安静：只在被叫到、被回复时说话；活跃：插话翻倍。": "Leave blank to use the defaults above. Quiet: speaks only when called or replied to. Lively: chimes in twice as often.",
+    "先在上面填可以发言或旁听的群号，保存后这里会出现。": "Add groups she may speak or listen in above; after saving they show up here.",
+    "模式": "Mode", "普通": "Normal", "安静": "Quiet", "活跃": "Lively", "插话概率": "Chime-in", "等待（秒）": "Wait (s)",
+    "最多气泡": "Bubbles", "复读": "Repeat", "她该知道的": "What she should know", "比如：天文社的群，大家叫她乐乐": "e.g. the astronomy club; everyone calls her 乐乐",
   };
   // Server sentences with a name or number inside (llm/__init__.py, core/admin.py).
   const PATTERNS = [

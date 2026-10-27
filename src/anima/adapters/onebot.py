@@ -203,6 +203,8 @@ class OneBotAdapter(Adapter):
             return
         ats, sticker = self._ats, self._sticker
         reply_to_me = bool(reply_to and reply_to in self._sent_ids)
+        if reply_to and not reply_to_me and self.brain is not None:  # her message from before a restart
+            reply_to_me = await self.brain.memory.is_own_message(chat.key, reply_to)
         collect = sticker and self.brain is not None and random.random() < self.brain.cfg.behavior.collect_stickers
         if images and self.cfg.download_images and (chat.kind == "private" or mentions_me or collect):
             await self._download(images)
@@ -214,7 +216,8 @@ class OneBotAdapter(Adapter):
             mentions_me=mentions_me,
             reply_to_me=reply_to_me,
             images=images,
-            meta={"listen_only": listen_only, "at": ats, "sticker": sticker},
+            meta={"listen_only": listen_only, "at": ats, "sticker": sticker,
+                  "reply_to_other": bool(reply_to and not reply_to_me)},
         )
         assert self.brain is not None
         await self.brain.handle(ev)
@@ -300,6 +303,15 @@ class OneBotAdapter(Adapter):
     async def _on_notice(self, data: dict[str, Any]) -> None:
         self_id = str(data.get("self_id") or self.self_id or "")
         notice = data.get("notice_type")
+        if notice in ("group_recall", "friend_recall") and data.get("message_id") is not None:
+            if str(data.get("user_id")) == self_id or self.brain is None:
+                return
+            if notice == "group_recall":
+                chat = Chat(self.platform, "group", str(data.get("group_id")))
+            else:
+                chat = Chat(self.platform, "private", str(data.get("user_id")))
+            await self.brain.retract(chat, str(data["message_id"]))
+            return
         if notice == "notify" and data.get("sub_type") == "poke" and str(data.get("target_id")) == self_id:
             user_id = str(data.get("user_id"))
             if user_id == self_id:

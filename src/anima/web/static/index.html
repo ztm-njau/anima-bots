@@ -60,6 +60,7 @@ body.asleep .avatar svg { filter: grayscale(.4) brightness(.85); }
 .row.me .bubble { background: linear-gradient(135deg, var(--cola2), var(--cola)); color: #fff; border-bottom-right-radius: 6px; }
 .bubble.sticker { background: none !important; border: 0 !important; font-size: 40px; line-height: 1.1; padding: 0 4px; }
 .bubble .stk { font-size: 20px; margin-left: 2px; }
+.bubble .quote { font-size: 12px; color: var(--ink3); border-left: 2px solid var(--line); padding: 1px 0 1px 8px; margin: 1px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .bubble img { max-width: 220px; border-radius: 12px; display: block; margin-top: 4px; }
 .speaker { font-size: 11.5px; color: var(--ink3); margin: 10px 4px 1px; text-align: right; }
 .speaker.left { text-align: left; }
@@ -221,7 +222,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
   </section>
 </div>
 
-<script src="/static/i18n.js?v=3"></script>
+<script src="/static/i18n.js?v=4"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { ws: null, state: null, chats: {}, mode: "private", msgs: {}, typing: {}, read: {}, image: null, imageName: "", traces: 0, traceList: [] };
@@ -267,7 +268,7 @@ function handle(m) {
     applyState(m.state); render();
   } else if (m.type === "state") { applyState(m.state); }
   else if (m.type === "user_message") { list(m.chat).push({ who: "me", speaker: m.speaker, text: m.text, kind: m.kind, image: m.image, id: m.id }); render(); }
-  else if (m.type === "bubble") { S.typing[m.chat] = false; list(m.chat).push({ who: "her", segments: m.segments, voice: m.voice, voice_url: m.voice_url, id: m.id }); render(); }
+  else if (m.type === "bubble") { S.typing[m.chat] = false; list(m.chat).push({ who: "her", segments: m.segments, voice: m.voice, voice_url: m.voice_url, id: m.id, quote: m.quote }); render(); }
   else if (m.type === "typing") { S.typing[m.chat] = m.on; renderTyping(); }
   else if (m.type === "read") { S.read[m.chat] = m.id; render(); }
   else if (m.type === "poke") { list(m.chat).push({ who: "sys", tpl: "{name} 戳了戳你" }); render(); $("avatar").classList.remove("wiggle"); void $("avatar").offsetWidth; $("avatar").classList.add("wiggle"); }
@@ -335,8 +336,9 @@ function render() {
         const bars = Array.from({ length: Math.min(14, 4 + Math.round(it.voice.length / 2)) }, (_, i) => `<b style="height:${6 + ((i * 7) % 11)}px"></b>`).join("");
         html += `<div class="row her"><div class="bubble voice" data-url="${it.voice_url || ""}" data-text="${esc(it.voice)}" title="${esc(it.voice)}">▶ <i>${bars}</i><small>${Math.max(1, Math.round(it.voice.length / 4))}″</small></div></div>`;
       } else {
-        const s = segHtml(it.segments || []);
-        html += `<div class="row her"><div class="bubble ${s.cls}">${s.html}</div></div>`;
+        const s = segHtml(it.segments || []), q = it.quote && items.find((x) => x.id === it.quote && x.who === "me");
+        const quoted = q ? `<div class="quote">${esc(q.speaker || "")}${q.speaker ? "：" : ""}${esc((q.text || "").slice(0, 40))}</div>` : "";
+        html += `<div class="row her"><div class="bubble ${q ? "" : s.cls}">${quoted}${s.html}</div></div>`;
       }
     }
   }

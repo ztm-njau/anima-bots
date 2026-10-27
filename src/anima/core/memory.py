@@ -473,6 +473,22 @@ class Memory:
         await self.conn.execute("UPDATE users SET profile = '', nickname = NULL, birthday = NULL WHERE key = ?", (key,))
         await self.conn.commit()
 
+    async def retract(self, chat_key: str, platform_msg_id: str) -> bool:
+        """A recalled (撤回) message keeps its place in the transcript but loses its words."""
+        cur = await self.conn.execute(
+            "UPDATE messages SET text = '（撤回了一条消息）' WHERE chat_key = ? AND platform_msg_id = ? AND is_self = 0",
+            (chat_key, platform_msg_id),
+        )
+        await self.conn.commit()
+        return (cur.rowcount or 0) > 0
+
+    async def is_own_message(self, chat_key: str, platform_msg_id: str) -> bool:
+        async with self.conn.execute(
+            "SELECT 1 FROM messages WHERE chat_key = ? AND platform_msg_id = ? AND is_self = 1 LIMIT 1",
+            (chat_key, platform_msg_id),
+        ) as cur:
+            return await cur.fetchone() is not None
+
     async def update_message(self, row_id: int, text: str) -> None:
         await self.conn.execute("UPDATE messages SET text = ? WHERE id = ?", (text, row_id))
         await self.conn.commit()

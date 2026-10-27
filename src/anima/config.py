@@ -60,10 +60,24 @@ class BehaviorConfig(BaseModel):
     interest_boost: float = 0.25
     cooldown_seconds: float = 90
     max_bubbles: int = 5
-    debounce_private: float = 2.5
+    debounce_private: float = 2.5  # how long she waits for someone to finish typing
     debounce_group: float = 4.0
-    debounce_max: float = 12.0
+    debounce_max: float = 12.0  # never wait longer than this after the first message
+    debounce_unfinished: float = 2.5  # extra wait when the last message trails off ("然后，" "在吗")
+    interrupt: bool = True  # rethink (or stop mid-reply) when the person adds something
     typing_cps: float = 6.0
+    bubble_split: int = 36  # lines longer than this are cut at sentence breaks
+    bubble_hard: int = 72  # and lines longer than this at commas too
+    reply_budget: float = 24.0  # most seconds of typing one reply may take, all bubbles together
+    group_max_bubbles: int = 3
+    follow_up_seconds: float = 150  # someone she just answered keeps her attention this long
+    interjections_per_hour: int = 4  # unprompted chime-ins per group
+    repeat_chance: float = 0.3  # chance she joins a 复读 chain
+    auto_quote: bool = True  # quote the message she answers once the group has moved on
+    name_false_friends: list[str] = [  # words that contain her name but aren't about her
+        "喝可乐", "可口可乐", "百事可乐", "可乐鸡翅", "冰可乐", "无糖可乐", "零度可乐", "健怡可乐",
+        "一瓶可乐", "一罐可乐", "一杯可乐", "瓶可乐", "罐可乐", "杯可乐", "可乐瓶", "可乐罐", "可乐味", "可乐姜",
+    ]
     delays: bool = True
     history_limit: int = 40
     interests: list[str] = []
@@ -72,6 +86,20 @@ class BehaviorConfig(BaseModel):
     sticker_cap: int = 600
     lore_budget: int = 1800  # characters of 世界书 per turn
     recall: bool = True  # bring up related old facts and moments
+
+
+class ChatOverride(BaseModel):
+    """Per-chat tuning in bot.toml: ``[chats."qq:group:123456"]``. Unset fields follow [behavior]."""
+
+    mode: str = "normal"  # normal | quiet (only when spoken to) | lively
+    chattiness: float | None = None
+    debounce: float | None = None
+    max_bubbles: int | None = None
+    cooldown_seconds: float | None = None
+    interjections_per_hour: int | None = None
+    repeat_chance: float | None = None
+    interests: list[str] | None = None  # replaces her usual interests here
+    note: str = ""  # what she should know about this chat, e.g. "天文社的群，大家都叫她乐乐"
 
 
 class LifeConfig(BaseModel):
@@ -109,9 +137,33 @@ class BotConfig(BaseModel):
     safety: SafetyConfig = SafetyConfig()
     skills: list[str] = ["*"]
     platforms: dict[str, PlatformConfig] = {}
+    chats: dict[str, ChatOverride] = {}
 
     def platform(self, name: str) -> PlatformConfig:
         return self.platforms.get(name) or PlatformConfig()
+
+    def behavior_for(self, chat_key: str) -> BehaviorConfig:
+        """[behavior] with this chat's overrides applied."""
+        o = self.chats.get(chat_key)
+        if o is None:
+            return self.behavior
+        b, update = self.behavior, {}
+        kind = chat_key.split(":")[1] if chat_key.count(":") >= 2 else ""
+        if o.chattiness is not None:
+            update["group_chattiness"] = o.chattiness
+        if o.debounce is not None:
+            update["debounce_private" if kind == "private" else "debounce_group"] = o.debounce
+        if o.max_bubbles is not None:
+            update["max_bubbles"] = update["group_max_bubbles"] = o.max_bubbles
+        for name in ("cooldown_seconds", "interjections_per_hour", "repeat_chance", "interests"):
+            if getattr(o, name) is not None:
+                update[name] = getattr(o, name)
+        if o.mode == "quiet":
+            update |= {"group_chattiness": 0.0, "interest_boost": 0.0, "repeat_chance": 0.0, "interjections_per_hour": 0}
+        elif o.mode == "lively":
+            update["group_chattiness"] = min(0.6, update.get("group_chattiness", b.group_chattiness) * 2)
+            update["interjections_per_hour"] = update.get("interjections_per_hour", b.interjections_per_hour) * 2
+        return b.model_copy(update=update)
 
 
 @dataclass

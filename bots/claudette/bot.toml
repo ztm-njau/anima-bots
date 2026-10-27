@@ -35,13 +35,32 @@ interests = ["星", "宇宙", "天文", "流星", "月亮", "猫", "电影", "�
 cooldown_seconds = 90
 max_bubbles = 5
 debounce_private = 2.5              # wait this long for someone to finish typing in DMs
-debounce_group = 4.0
+debounce_group = 4.0                # in groups only people talking to her make her wait longer
+debounce_max = 12.0                 # never wait longer than this after the first message
+debounce_unfinished = 2.5           # extra wait when a line trails off ("然后，" "在吗" a bare @)
+interrupt = true                    # rethink if they add something while she types; stop mid-reply
 typing_cps = 6.0                    # phone typing speed, characters per second
+bubble_split = 36                   # lines longer than this are cut at sentence breaks
+reply_budget = 24.0                 # most seconds of typing one reply may take
+group_max_bubbles = 3
+follow_up_seconds = 150             # someone she just answered is still talking to her this long
+interjections_per_hour = 4          # unprompted chime-ins per group
+repeat_chance = 0.3                 # chance she joins a 复读 chain
+auto_quote = true                   # quote what she answers once the group has moved on
 delays = true                       # false = instant replies (debugging only)
 history_limit = 40
 caption_images = true               # describe images once and remember what they showed
 collect_stickers = 0.5              # chance she saves a sticker someone sends (0 = never)
 recall = true                       # bring up related old facts and moments
+
+# Per-chat tuning (also in the console: 设置 → 每个群单独调). Unset keys follow [behavior].
+# [chats."qq:group:123456789"]
+# mode = "quiet"                    # normal | quiet (only when spoken to) | lively
+# chattiness = 0.05
+# debounce = 5
+# max_bubbles = 2
+# repeat_chance = 0
+# note = "天文社的群，大家都叫她乐乐"
 
 [life]
 daily_plan = true

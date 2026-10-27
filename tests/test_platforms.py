@@ -77,6 +77,22 @@ async def test_onebot_group_mention_poke_and_whitelist(make_brain):
         assert napcat.sent("group_poke") == [{"group_id": 123, "user_id": 42}]
         assert any(p["message"] == [{"type": "text", "data": {"text": "别戳啦"}}] for p in napcat.sent("send_group_msg"))
         assert await brain.memory.recent("qq:group:999") == []
+
+        mine = [m for m in await brain.memory.recent("qq:group:123") if m.is_self]
+        adapter._sent_ids.clear()  # as after a restart: memory still knows which messages were hers
+        await napcat.push({
+            "post_type": "message", "message_type": "group", "group_id": 123, "user_id": 43, "message_id": 9,
+            "sender": {"nickname": "小红"},
+            "message": [{"type": "reply", "data": {"id": mine[0].platform_msg_id}}, {"type": "text", "data": {"text": "哈哈真的吗"}}],
+        })
+        await asyncio.sleep(0.2)
+        await wait_idle(brain)
+        assert brain.llm.calls[-1]["turns"][-1].text.endswith("哈哈真的吗"), "a reply to her message, even from before a restart"
+        await napcat.push({"post_type": "notice", "notice_type": "group_recall", "group_id": 123,
+                           "user_id": 43, "operator_id": 43, "message_id": 9})
+        await asyncio.sleep(0.2)
+        recalled = [m for m in await brain.memory.recent("qq:group:123") if m.platform_msg_id == "9"]
+        assert recalled[0].text == "（撤回了一条消息）"
     finally:
         await adapter.stop()
         server.close()

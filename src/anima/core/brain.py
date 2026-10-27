@@ -12,6 +12,7 @@ import asyncio
 import json
 import random
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -20,14 +21,15 @@ from loguru import logger
 from anima.config import Bot
 from anima.core.admin import Admin
 from anima.core.clock import Clock
-from anima.core.events import Chat, Incoming, Reply
+from anima.core.debounce import settle_wait
+from anima.core.events import Bubble, Chat, Incoming, Reply, Segment
 from anima.core.humanizer import Humanizer
 from anima.core.lorebook import Lorebook
 from anima.core.markup import parse_reply
 from anima.core.memes import StickerLibrary, parse_caption
 from anima.core.memory import Memory
 from anima.core.mood import MoodEngine
-from anima.core.policy import ChatStats, Decision, Policy
+from anima.core.policy import ChatStats, Decision, Policy, directed_elsewhere
 from anima.core.prompt import PersonCard, PromptBuilder, Scene
 from anima.core.recall import recall
 from anima.core.reflection import reflect
@@ -58,6 +60,10 @@ class ChatSession:
     first_buffered: float = 0.0
     busy: bool = False
     since_reflect: int = 0
+    partners: dict[str, float] = field(default_factory=dict)  # user key -> when she last answered them
+    asked_at: float = 0.0  # when she last ended on a question
+    interjections: deque = field(default_factory=lambda: deque(maxlen=50))  # unprompted chime-ins
+    unsent: list[str] = field(default_factory=list)  # what she was about to say when interrupted
 
 
 def game_note(state: dict) -> str:
@@ -178,8 +184,32 @@ class Brain:
         session.buffer.append(ev)
         if not session.first_buffered:
             session.first_buffered = time.monotonic()
-        if not session.busy:
+        if not session.busy and self._extends_wait(session, ev):
             self._arm(session)
+
+    def _extends_wait(self, session: ChatSession, ev: Incoming) -> bool:
+        """In a busy group, only people talking to her make her wait longer; the rest just pile up."""
+        if session.chat.kind == "private" or not session.timer or session.timer.done():
+            return True
+        if self.policy.addressed(ev) or ev.user_key in session.partners:
+            return True
+        return any(e.sender.id == ev.sender.id and self.policy.addressed(e) for e in session.buffer[:-1])
+
+    def _relevant_news(self, session: ChatSession, batch: list[Incoming]) -> list[Incoming]:
+        """Messages that arrived while she was busy and change what she should say."""
+        if session.chat.kind == "private":
+            return list(session.buffer)
+        senders = {e.sender.id for e in batch}
+        return [e for e in session.buffer
+                if (e.sender.id in senders and not directed_elsewhere(e)) or self.policy.addressed(e)]
+
+    async def retract(self, chat: Chat, message_id: str) -> None:
+        """Someone recalled (撤回) a message: forget it, and don't answer it if she hasn't yet."""
+        session = self.sessions.get(chat.key)
+        if session:
+            session.buffer = [e for e in session.buffer if e.message_id != message_id]
+        if await self.memory.retract(chat.key, message_id):
+            self.trace.emit("retract", chat=chat.key, message_id=message_id)
 
     async def _caption(self, ev: Incoming) -> None:
         """Remember what an image showed, so later turns (and models without eyes) know it too."""
@@ -211,10 +241,9 @@ class Brain:
     def _arm(self, session: ChatSession) -> None:
         if session.timer and not session.timer.done():
             session.timer.cancel()
-        b = self.cfg.behavior
-        wait = b.debounce_private if session.chat.kind == "private" else b.debounce_group
-        if time.monotonic() - session.first_buffered >= b.debounce_max:
-            wait = 0
+        b = self.cfg.behavior_for(session.chat.key)
+        wait = settle_wait(session.buffer, b, session.chat.kind == "private", self.cfg.identity.display_name)
+        wait = min(wait, max(0.0, b.debounce_max - (time.monotonic() - session.first_buffered)))
         wait *= self.humanizer.scale * self._pace(session.chat)
         session.timer = self.spawn(self._fire(session, max(0.05, wait)))
 
@@ -239,19 +268,36 @@ class Brain:
 
     # ------------------------------------------------------------ decide
 
-    async def chat_stats(self, chat: Chat) -> ChatStats:
+    async def chat_stats(self, chat: Chat, session: ChatSession | None = None) -> ChatStats:
         meta = await self.memory.chat(chat.key)
         now = self.clock.timestamp()
         since = now - meta["last_self"] if meta and meta.get("last_self") else None
-        recent = await self.memory.recent(chat.key, 20)
-        share = sum(m.is_self for m in recent) / len(recent) if recent else 0.0
+        recent = await self.memory.recent(chat.key, 30)
+        last20 = recent[-20:]
+        share = sum(m.is_self for m in last20) / len(last20) if last20 else 0.0
         adapter = self.adapters.get(chat.platform)
-        return ChatStats(since, share, adapter.can_speak(chat) if adapter else True)
+        stats = ChatStats(since, share, adapter.can_speak(chat) if adapter else True)
+        mine = [i for i, m in enumerate(recent) if m.is_self]
+        stats.others_since_self = len(recent) - 1 - mine[-1] if mine else len(recent)
+        stats.pace = sum(1 for m in recent if now - m.ts < 180) / 3
+        others = [m for m in recent if not m.is_self][-3:]
+        said = {m.text for m in recent[-12:] if m.is_self}
+        if (len(others) == 3 and len({m.text for m in others}) == 1 and len({m.sender_key for m in others}) >= 2
+                and recent[-1].text == others[-1].text and others[0].text not in said
+                and 0 < len(others[0].text) <= 20 and "[" not in others[0].text and "@" not in others[0].text
+                and not others[0].text.startswith("/")):
+            stats.echo = others[0].text
+        if session:
+            stats.partners = {k: now - t for k, t in session.partners.items() if now - t < 3600}
+            stats.asked_ago = now - session.asked_at if session.asked_at else None
+            stats.interjections_hour = sum(1 for t in session.interjections if now - t < 3600)
+        return stats
 
     async def _process(self, session: ChatSession, batch: list[Incoming]) -> None:
         chat = session.chat
         life = self.life()
-        decision = self.policy.decide(chat, batch, life, await self.chat_stats(chat))
+        stats = await self.chat_stats(chat, session)
+        decision = self.policy.decide(chat, batch, life, stats, self.cfg.behavior_for(chat.key))
         if getattr(self.llm, "demo", False) and chat.platform not in REAL_PLATFORMS_EXCLUDED and decision.act == "reply":
             decision = Decision("ignore", "还没接上真正的模型，在真实平台上先不说话")
         self.trace.emit("decision", chat=chat.key, act=decision.act, reason=decision.reason,
@@ -262,7 +308,18 @@ class Brain:
         if decision.act == "defer":
             session.deferred.extend(batch)
             return
+        if decision.act == "echo" and stats.echo:
+            await self._echo(session, stats.echo)
+            return
         await self.engage(session, batch, decision, life)
+
+    async def _echo(self, session: ChatSession, text: str) -> None:
+        """Join a 复读 chain: the same line, no thinking needed."""
+        if self.guard.check(text):
+            return
+        await self._sleep(self.rng.uniform(1.0, 4.0) * self.humanizer.scale * self._pace(session.chat))
+        await self.deliver(session.chat, Reply(bubbles=[Bubble([Segment("text", text)], source=text)]))
+        session.interjections.append(self.clock.timestamp())
 
     async def engage(self, session: ChatSession, batch: list[Incoming], decision: Decision,
                      life: LifeState, notes: list[str] | None = None) -> None:
@@ -277,11 +334,58 @@ class Brain:
         await self._sleep(self.humanizer.reading_delay(sum(len(ev.text) for ev in batch)) * pace)
         if session.buffer:  # whatever arrived while she was away from the phone, she reads now
             batch, session.buffer = batch + session.buffer, []
+        cfg = self.cfg.behavior_for(chat.key)
+        notes = list(notes or [])
+        if session.unsent:
+            notes.append(f"你刚才话说到一半，对方又发了消息，你本来还想说：「{' / '.join(session.unsent)}」。"
+                         "先回应新消息；没说完的话还合适就自然地带上，不合适就算了，别原样重复。")
+            session.unsent = []
         if adapter:
             await adapter.typing(chat, True)
-        reply = await self.compose(chat, batch, decision, notes=notes)
-        await self.deliver(chat, reply)
-        self._maybe_reflect(session, len(batch) + len(reply.bubbles))
+        for rethink in range(3):
+            reply = await self.compose(chat, batch, decision, notes=notes)
+            news = self._relevant_news(session, batch) if cfg.interrupt and rethink < 2 else []
+            if not news:
+                break
+            # They added something while she was typing: read it and say something that fits.
+            session.buffer = [e for e in session.buffer if e not in news]
+            batch = batch + news
+            decision.target = self.policy.target(batch, None, cfg) if decision.addressed else decision.target
+            self.trace.emit("rethink", chat=chat.key, added=[e.render() for e in news])
+        self._auto_quote(chat, reply, batch, decision, cfg, await self._moved_on(chat, decision))
+        waiting = {id(e) for e in session.buffer}  # already-known leftovers don't count as interruptions
+        interrupted = (lambda: any(id(e) not in waiting for e in self._relevant_news(session, batch))) if cfg.interrupt else None
+        unsent = await self.deliver(chat, reply, interrupted=interrupted)
+        now = self.clock.timestamp()
+        if unsent:
+            session.unsent = [b.source or b.plain() for b in unsent]
+            self.trace.emit("interrupted", chat=chat.key, unsent=session.unsent)
+        sent = reply.bubbles[: len(reply.bubbles) - len(unsent)]
+        if sent:
+            if decision.target is not None:
+                session.partners[decision.target.user_key] = now
+            if decision.unprompted:
+                session.interjections.append(now)
+            last = (sent[-1].text or sent[-1].voice or "").rstrip()
+            session.asked_at = now if last.endswith(("?", "？", "吗", "呢")) else 0.0
+        self._maybe_reflect(session, len(batch) + len(sent))
+
+    async def _moved_on(self, chat: Chat, decision: Decision) -> int:
+        """How many messages from other people came after the one she is answering."""
+        target = decision.target
+        if target is None or not target.meta.get("row_id"):
+            return 0
+        after = await self.memory.messages_after(chat.key, target.meta["row_id"], 50)
+        return sum(1 for m in after if not m.is_self and m.sender_key != target.user_key)
+
+    def _auto_quote(self, chat: Chat, reply: Reply, batch: list[Incoming], decision: Decision,
+                    cfg, moved_on: int) -> None:
+        """In a group that has moved on, quote what she is answering so it's clear who she means."""
+        target = decision.target
+        if reply.quote or not cfg.auto_quote or not chat.is_group_like or target is None or not target.message_id:
+            return
+        if moved_on >= 2 or (len({e.sender.id for e in batch}) > 1 and target is not batch[-1]):
+            reply.quote = target.message_id
 
     # ------------------------------------------------------------ think
 
@@ -346,8 +450,10 @@ class Brain:
 
     async def compose(self, chat: Chat, batch: list[Incoming], decision: Decision, *,
                       notes: list[str] | None = None, instruction: str | None = None) -> Reply:
-        history = await self.memory.recent(chat.key, self.cfg.behavior.history_limit)
+        cfg = self.cfg.behavior_for(chat.key)
+        history = await self.memory.recent(chat.key, cfg.history_limit)
         turns = self.prompt.turns(history, chat, batch, vision=self.llm.supports_vision)
+        notes = [*(notes or []), *self._chat_notes(chat, batch, decision)]
         scene = await self.scene(chat, batch, decision.reason, notes, instruction)
         dynamic = self.prompt.dynamic(scene)
         tools = [s for s in self.skills if s.available_on(chat.platform)]
@@ -372,8 +478,9 @@ class Brain:
         self.account(result)
 
         raw = self.guard.deflect(None) if result.refused else result.text
-        reply = parse_reply(raw, self.stickers, self.cfg.behavior.max_bubbles)
-        reply.bubbles = self.humanizer.shape(reply.bubbles)
+        max_bubbles = cfg.group_max_bubbles if chat.is_group_like else cfg.max_bubbles
+        reply = parse_reply(raw, self.stickers, max_bubbles + 2)
+        reply.bubbles = self.humanizer.shape(reply.bubbles, max_bubbles, cfg)
         for bubble in reply.bubbles:
             for seg in bubble.segments:
                 if seg.type == "text":
@@ -383,10 +490,11 @@ class Brain:
                 self.trace.emit("guard", chat=chat.key, category=category, text=bubble.source)
                 reply = parse_reply(self.guard.deflect(category), self.stickers)
                 break
+        aim = decision.target or (batch[-1] if batch else None)
         if reply.poke == "*":
-            reply.poke = batch[-1].sender.id if batch else None
+            reply.poke = aim.sender.id if aim else None
         if reply.quote == "*":
-            reply.quote = batch[-1].message_id if batch else None
+            reply.quote = aim.message_id if aim else None
         for label in reply.moods:
             self.mood.feel(label)
         await self.memory.set_state("mood", self.mood.snapshot())
@@ -398,15 +506,33 @@ class Brain:
         )
         return reply
 
+    def _chat_notes(self, chat: Chat, batch: list[Incoming], decision: Decision) -> list[str]:
+        notes = []
+        override = self.cfg.chats.get(chat.key)
+        if override and override.note:
+            notes.append(f"关于这里：{override.note}")
+        if not chat.is_group_like or not batch:
+            return notes
+        notes.append("群聊里说一两句就好，不用每个人都回，别重复别人刚说过的；对某个人说话时可以带上 TA 的名字。")
+        target = decision.target
+        if target is not None and (target is not batch[-1] or len({e.sender.id for e in batch}) > 1):
+            notes.append(f"这次主要回应 {target.sender.name} 说的「{target.render()[:60]}」。")
+        if "follow-up" in decision.tags:
+            notes.append("你刚才在和 TA 聊，这是 TA 接着说的，不用重新打招呼。")
+        elif "answer" in decision.tags:
+            notes.append("你刚问了一个问题，这是有人在回答你。")
+        return notes
+
     # ------------------------------------------------------------ speak
 
-    async def deliver(self, chat: Chat, reply: Reply) -> None:
+    async def deliver(self, chat: Chat, reply: Reply, interrupted=None) -> list[Bubble]:
+        """Send bubble by bubble. If ``interrupted()`` turns true mid-way, stop and return what's left."""
         adapter = self.adapters.get(chat.platform)
         if not adapter:
-            return
+            return []
         if reply.empty:
             await adapter.typing(chat, False)
-            return
+            return []
         pace = self._pace(chat)
         if reply.poke and "poke" in adapter.capabilities:
             await self._sleep(self.rng.uniform(0.3, 1.2) * self.humanizer.scale * pace)
@@ -414,12 +540,17 @@ class Brain:
         for bubble in reply.bubbles:
             await self._resolve_memes(bubble, "image" in adapter.capabilities)
         reply.bubbles = [b for b in reply.bubbles if b.segments or b.voice]
+        delays = self.humanizer.plan(reply.bubbles, self.cfg.behavior_for(chat.key).reply_budget)
+        unsent: list[Bubble] = []
         for i, bubble in enumerate(reply.bubbles):
             if not self.limiter.allow(chat.key):
                 self.trace.emit("rate_limited", chat=chat.key)
                 break
             await adapter.typing(chat, True)
-            await self._sleep((self.humanizer.typing_delay(bubble) + (self.humanizer.gap() if i else 0)) * pace)
+            await self._sleep(delays[i] * pace)
+            if i and interrupted is not None and interrupted():
+                unsent = reply.bubbles[i:]
+                break
             try:
                 msg_id = await adapter.send(chat, bubble, quote=reply.quote if i == 0 else None)
             except Exception:
@@ -431,6 +562,7 @@ class Brain:
             )
             self.trace.emit("sent", chat=chat.key, text=bubble.source)
         await adapter.typing(chat, False)
+        return unsent
 
     async def _resolve_memes(self, bubble, can_send_images: bool) -> None:
         segments = []

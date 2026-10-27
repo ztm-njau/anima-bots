@@ -30,7 +30,7 @@ h1 { margin:0 0 4px; font-size:24px; } .sub { color:var(--ink2); margin:0 0 18px
 .stat { padding:14px 16px; } .stat b { font-size:26px; display:block; } .stat span { color:var(--ink2); font-size:13px; }
 .warn { border-color:#f1c58a; background:#fff4e0; color:#8a4a00; }
 @media (prefers-color-scheme: dark) { .warn { background:#3a2a10; color:#ffc56b; border-color:#6a4a1a; } }
-input[type=text], input[type=number], input[type=search], select, textarea { width:100%; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
+input:not([type]), input[type=text], input[type=number], input[type=search], select, textarea { width:100%; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
   border-radius:11px; padding:8px 10px; font:inherit; font-size:14px; outline:none; }
 input:focus, textarea:focus, select:focus { border-color:var(--cola); }
 textarea { min-height:70px; resize:vertical; } textarea.code { font:12.5px/1.5 var(--mono); min-height:260px; }
@@ -50,12 +50,16 @@ th { color:var(--ink3); font-weight:500; font-size:12.5px; } tr.click { cursor:p
 .stk { border:1px solid var(--line); border-radius:14px; padding:8px; background:var(--panel2); text-align:center; }
 .stk img { width:100%; height:100px; object-fit:contain; border-radius:8px; }
 .stk input { margin-top:6px; font-size:12px; padding:5px 7px; }
+.chat-row { display:grid; grid-template-columns: minmax(130px,1.2fr) 92px repeat(4, 84px) minmax(160px,2fr); gap:10px; align-items:end; padding:10px 0; border-top:1px dashed var(--line); }
+.chat-row:first-child { border-top:0; }
+.chat-row label span { display:block; font-size:11.5px; color:var(--ink3); margin-bottom:3px; }
+.chat-name b { display:block; font-weight:600; } .chat-name code { font-size:11px; color:var(--ink3); }
 .lore-entry { border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:10px; background:var(--panel2); }
 .empty { color:var(--ink3); padding:8px 0; font-size:13.5px; }
 .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--panel); padding:10px 16px; border-radius:12px; opacity:0; transition:.25s; font-size:14px; pointer-events:none; z-index:9; }
 .toast.show { opacity:1; transform:translateX(-50%); }
 code { font:12.5px var(--mono); }
-@media (max-width: 860px) { .shell { grid-template-columns:1fr; } nav { position:static; height:auto; flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--line); } nav .sep, nav .brand { display:none; } .two, .three { grid-template-columns:1fr; } }
+@media (max-width: 860px) { .shell { grid-template-columns:1fr; } nav { position:static; height:auto; flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--line); } nav .sep, nav .brand { display:none; } .two, .three { grid-template-columns:1fr; } .chat-row { grid-template-columns:repeat(3,1fr); } .chat-name, .chat-note { grid-column:1 / -1; } }
 </style>
 <link rel="stylesheet" href="/static/theme.css?v=7">
 </head>
@@ -80,7 +84,7 @@ code { font:12.5px var(--mono); }
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
 
-<script src="/static/i18n.js?v=3"></script>
+<script src="/static/i18n.js?v=4"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -272,11 +276,20 @@ pages.plugins = async () => {
 };
 
 // ---------------------------------------------------------------- settings
+function chatRow(c, v) {
+  const k = esc(c.key), num = (f, label, step, ph) => `<label><span>${t(label)}</span><input type="number" step="${step}" min="0" data-chat="${k}" data-f="${f}" value="${c[f] ?? ""}" placeholder="${ph}"></label>`;
+  const modes = { normal: "普通", quiet: "安静", lively: "活跃" };
+  return `<div class="chat-row"><div class="chat-name"><b>${esc(c.title || c.key.split(":").pop())}</b><code>${k}</code></div>
+    <label><span>${t("模式")}</span><select data-chat="${k}" data-f="mode">${Object.entries(modes).map(([m, l]) => `<option value="${m}" ${(c.mode || "normal") === m ? "selected" : ""}>${t(l)}</option>`).join("")}</select></label>
+    ${num("chattiness", "插话概率", "0.01", v.group_chattiness)}${num("debounce", "等待（秒）", "0.5", v.debounce_group)}${num("max_bubbles", "最多气泡", "1", v.group_max_bubbles)}${num("repeat_chance", "复读", "0.05", v.repeat_chance)}
+    <label class="chat-note"><span>${t("她该知道的")}</span><input data-chat="${k}" data-f="note" value="${esc(c.note || "")}" placeholder="${t("比如：天文社的群，大家叫她乐乐")}"></label></div>`;
+}
+
 pages.settings = async () => {
   const s = await api("/settings"), v = s.values;
   const f = (k, label, hint = "", type = "text") => `<div class="field"><label>${t(label)}</label>${type === "bool" ? `<label><input type="checkbox" data-k="${k}" ${v[k] ? "checked" : ""}> ${t("开")}</label>`
     : type === "select" ? `<select data-k="${k}">${Object.entries(hint).map(([val, l]) => `<option value="${val}" ${v[k] === val ? "selected" : ""}>${t(l)}</option>`).join("")}</select>`
-    : `<input type="${type}" step="0.01" data-k="${k}" data-type="${type}" value="${esc(Array.isArray(v[k]) ? list(v[k]) : v[k] ?? "")}">`}${type !== "select" && hint ? `<div class="hint">${t(hint)}</div>` : ""}</div>`;
+    : `<input type="${type === "number" ? "number" : "text"}" step="0.01" data-k="${k}" data-type="${type}" value="${esc(Array.isArray(v[k]) ? list(v[k]) : v[k] ?? "")}">`}${type !== "select" && hint ? `<div class="hint">${t(hint)}</div>` : ""}</div>`;
   const policy = { accept: "全部同意", smart: "认识的人和带暗号的同意，其他问我", owner: "都问我", ignore: "不理" };
   $("main").innerHTML = `<h1>${t("设置")}</h1><p class="sub">${t("保存后写回 ")}<code>bots/…/bot.toml</code>${t("（保留注释）。大多数立刻生效；开关平台和直播间要重启。")}</p>
   <div class="card"><h3 style="margin-top:0">${t("她是谁、谁是主人")}</h3><div class="two">${f("display_name", "名字")}${f("aliases", "别名（群里叫这些她会回）", "逗号分隔", "list")}</div>
@@ -284,22 +297,34 @@ pages.settings = async () => {
   <div class="card"><h3 style="margin-top:0">${t("说话习惯")}</h3><div class="three">${f("group_chattiness", "群里主动插话的概率", "0~1，0.08 大约每十几条插一句", "number")}${f("cooldown_seconds", "说完话后冷静多久（秒）", "", "number")}${f("collect_stickers", "看到表情包时收藏的概率", "0 就不偷了", "number")}</div>
     ${f("interests", "她感兴趣的话题（提到就更想插话）", "逗号分隔", "list")}
     <div class="three">${f("delays", "真人节奏（打字延迟、不秒回）", "", "bool")}${f("caption_images", "看图后把图片内容记进记忆", "", "bool")}${f("recall", "聊天时自动想起相关的往事", "", "bool")}</div></div>
+  <div class="card"><h3 style="margin-top:0">${t("节奏：等你说完、分段发、群里的分寸")}</h3>
+    <div class="three">${f("debounce_private", "私聊等对方说完（秒）", "话没说完（「然后，」「在吗」）会再多等一会", "number")}${f("debounce_group", "群聊等多久（秒）", "群里只有对她说话的人会让她多等", "number")}${f("debounce_max", "最多等多久（秒）", "从第一条算起", "number")}</div>
+    <div class="three">${f("interrupt", "打字时你补了一句，她会改口；发到一半会停下", "", "bool")}${f("typing_cps", "打字速度（字/秒）", "手机大约 5~7", "number")}${f("reply_budget", "一次回复最多打多久（秒）", "话多时会打快一点", "number")}</div>
+    <div class="three">${f("bubble_split", "一个气泡超过多少字就按句子拆开", "", "number")}${f("max_bubbles", "私聊最多几个气泡", "", "number")}${f("group_max_bubbles", "群聊最多几个气泡", "", "number")}</div>
+    <div class="three">${f("follow_up_seconds", "刚回过的人接着说，算在跟她聊（秒）", "", "number")}${f("interjections_per_hour", "每个群每小时最多主动插话几次", "被叫到不算", "number")}${f("repeat_chance", "大家复读时她跟一个的概率", "0~1", "number")}</div>
+    <div class="two">${f("auto_quote", "群里话题已经过去时，引用她回的那条", "", "bool")}${f("name_false_friends", "含她名字但不是叫她的词", "比如 喝可乐、可乐鸡翅，逗号分隔", "list")}</div></div>
   <div class="card"><h3 style="margin-top:0">${t("生活")}</h3><div class="three">${f("daily_plan", "每天早上安排自己的一天", "", "bool")}${f("diary", "每晚写日记", "", "bool")}${f("diary_time", "写日记的时间", "北京时间 HH:MM")}</div>
     <div class="two">${f("idle_chatter", "群里太安静时冒个泡", "", "bool")}${f("greet_groups", "早上打招呼的群", "比如 qq:group:123456，逗号分隔", "list")}</div></div>
   <div class="card"><h3 style="margin-top:0">QQ</h3><div class="three">${f("qq.enabled", "启用（需重启）", "", "bool")}${f("qq.friend_requests", "好友请求", policy, "select")}${f("qq.group_invites", "群邀请", policy, "select")}</div>
     <div class="three">${f("qq.groups", "可以发言的群号", "逗号分隔", "numlist")}${f("qq.listen_groups", "只旁听的群号", "", "numlist")}${f("qq.friend_keywords", "加好友暗号", "申请备注里有这些词就自动同意", "list")}</div></div>
+  <div class="card"><h3 style="margin-top:0">${t("每个群单独调")}</h3><p class="hint" style="margin-top:-4px">${t("留空就跟上面的默认值一样。安静：只在被叫到、被回复时说话；活跃：插话翻倍。")}</p>
+    ${s.chats.length ? `<div class="chat-rows">${s.chats.map((c) => chatRow(c, v)).join("")}</div>` : `<div class="empty">${t("先在上面填可以发言或旁听的群号，保存后这里会出现。")}</div>`}</div>
   <div class="card"><h3 style="margin-top:0">${t("其他平台（需重启）")}</h3><div class="three">${f("bilibili.enabled", "B站", "", "bool")}${f("bilibili.live_rooms", "B站直播间号", "", "numlist")}${f("bilibili.post_diary", "日记发成 B站动态", "", "bool")}</div>
     <div class="three">${f("wechat.enabled", "微信公众号", "", "bool")}${f("douyin.enabled", "抖音（实验）", "", "bool")}${f("douyin.live_rooms", "抖音直播间号", "", "list")}</div></div>
   <div class="card"><h3 style="margin-top:0">${t("人设（改完下一句就生效）")}</h3><div class="field"><label>${t("persona.md：她是谁、性格、说话方式、底线")}</label><textarea id="persona" class="code">${esc(s.persona)}</textarea></div>
     <div class="field"><label>${t("examples.md：聊天示例（她会学语气）")}</label><textarea id="examples" class="code" style="min-height:180px">${esc(s.examples)}</textarea></div></div>
   <button class="primary" id="saveSettings" style="padding:10px 22px">${t("保存全部")}</button>`;
   $("saveSettings").onclick = async () => {
-    const values = {};
-    document.querySelectorAll("[data-k]").forEach((el) => {
+    const values = {}, chats = {};
+    document.querySelectorAll("[data-chat]").forEach((el) => {
+      const row = chats[el.dataset.chat] ||= {}, raw = el.value.trim();
+      row[el.dataset.f] = el.dataset.f === "mode" || el.dataset.f === "note" ? raw : raw === "" ? null : Number(raw);
+    });
+    document.querySelectorAll("[data-k]:not([data-chat])").forEach((el) => {
       const k = el.dataset.k, type = el.dataset.type;
       values[k] = el.type === "checkbox" ? el.checked : type === "number" ? parseFloat(el.value) : type === "list" ? parseList(el.value) : type === "numlist" ? parseList(el.value, true) : el.value;
     });
-    try { const r = await api("/settings", { method: "PUT", body: { values, persona: $("persona").value, examples: $("examples").value } });
+    try { const r = await api("/settings", { method: "PUT", body: { values, chats, persona: $("persona").value, examples: $("examples").value } });
       toast(r.changed.length ? t("保存好了：{n} 项", { n: r.changed.length }) + (r.restart.length ? t("（{list} 要重启才生效）", { list: r.restart.join(sep()) }) : "") : t("没有改动")); }
     catch (e) { toast(e.message); }
   };
