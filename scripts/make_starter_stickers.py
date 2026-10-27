@@ -1,4 +1,4 @@
-"""Draw Claudette's starter sticker pack (bots/claudette/memes/<tag>/01.png).
+"""Draw Claudette's starter sticker pack (bots/_template/memes/<tag>/01.png).
 
 Original artwork, drawn here with plain shapes (no emoji fonts, no third-party images), so the
 pack can ship under the project's MIT license. Ink lines on soft paper colours, a small vermilion

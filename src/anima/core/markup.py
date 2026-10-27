@@ -22,7 +22,6 @@ _MOOD = re.compile(r"\[mood:\s*([a-zA-Z_]+)\s*\]", re.I)
 _FLAG = re.compile(r"\[(poke|reply|silent)\]", re.I)
 _INLINE = re.compile(r"\[(sticker|meme):\s*([^\]\s]{1,24})\s*\]", re.I)
 _LEFTOVER = re.compile(r"\[(?:sticker|meme|mood|voice|/voice)[^\]]*\]", re.I)
-_SPEAKER_PREFIX = re.compile(r"^\s*(?:可乐|Claudette|我)\s*[:：]\s*")
 _MD_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)、])\s+")
 _MD_HEADER = re.compile(r"^\s*#{1,6}\s+")
 _MD_EMPH = re.compile(r"(\*\*|__|\*|`)")
@@ -30,23 +29,30 @@ _THINK = re.compile(r"<think>.*?</think>", re.S)
 _NARRATION = re.compile(r"^[（(【][^）)】]{9,}[）)】]$")  # "（突然想起了一部老电影……）"
 
 
-def clean(raw: str) -> str:
+def _speaker_prefix(names: tuple[str, ...]) -> re.Pattern:
+    alternatives = "|".join(re.escape(n) for n in sorted({*names, "我"}, key=len, reverse=True) if n)
+    return re.compile(rf"^\s*(?:{alternatives})\s*[:：]\s*")
+
+
+def clean(raw: str, names: tuple[str, ...] = ()) -> str:
+    speaker = _speaker_prefix(names)
     text = _THINK.sub("", raw or "")
     lines = []
     for line in text.replace("\r", "").split("\n"):
         line = _MD_HEADER.sub("", line)
         line = _MD_BULLET.sub("", line)
         line = _MD_EMPH.sub("", line)
-        line = _SPEAKER_PREFIX.sub("", line)
+        line = speaker.sub("", line)
         line = line.strip().strip('"“”')
         if line and not _NARRATION.match(line):
             lines.append(line)
     return "\n".join(lines)
 
 
-def parse_reply(raw: str, stickers: StickerBook, max_bubbles: int = 5) -> Reply:
+def parse_reply(raw: str, stickers: StickerBook, max_bubbles: int = 5, names: tuple[str, ...] = ()) -> Reply:
+    """``names`` are hers: a line starting "可乐：" loses the prefix."""
     reply = Reply()
-    text = clean(raw)
+    text = clean(raw, names)
 
     reply.moods = [m.lower() for m in _MOOD.findall(text)]
     text = _MOOD.sub("", text)

@@ -12,7 +12,7 @@ import sys
 from loguru import logger
 
 from anima.adapters.base import Adapter
-from anima.config import Bot, load_bot
+from anima.config import Bot, load_bot, set_default_bot
 from anima.core.brain import Brain
 from anima.core.life import Life
 from anima.core.memory import Memory
@@ -56,7 +56,10 @@ class Runtime:
         self.life: Life
         self.memory: Memory
         self.store: ProviderStore
+        self.web = None  # the RootApp uvicorn serves, when there is a web server
         self._stop = asyncio.Event()
+        self._services: list[asyncio.Task] = []
+        self._switching = asyncio.Lock()
 
     def enabled_platforms(self) -> list[str]:
         if self.platform_filter is not None:
@@ -114,10 +117,13 @@ class Runtime:
         self.adapters = self.build_adapters()
         for adapter in self.adapters.values():
             self.brain.attach(adapter)
+        from anima.plugin_host import PluginHost
         from anima.plugins import PluginManager
 
         self.plugins = PluginManager(self.brain)
         self.brain.plugins = self.plugins
+        self.extensions = PluginHost(self.brain)
+        self.brain.extensions = self.extensions
 
     def rebuild_llm(self) -> None:
         """Swap the brain's model in place after the provider panel changes something."""
@@ -127,39 +133,98 @@ class Runtime:
         self.brain.trace.emit("llm", provider=llm.label, model=llm.model, note=getattr(llm, "note", ""))
         logger.info("Brain now runs on {} · {}", llm.label, llm.model)
 
+    def _lock_bot(self) -> None:
+        lock = (self.bot.data_dir / "anima.lock").open("w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            lock.close()
+            raise AlreadyRunning(f"{self.bot.config.identity.display_name} 已经在另一个 anima 进程里运行了，先关掉那个再启动") from exc
+        self._lock = lock
+
+    def _unlock_bot(self) -> None:
+        lock = getattr(self, "_lock", None)
+        if lock is not None:
+            with contextlib.suppress(OSError):
+                fcntl.flock(lock, fcntl.LOCK_UN)
+            lock.close()
+            self._lock = None
+
     def claim(self) -> None:
         """One process per bot: two would share one memory file and answer every QQ message twice."""
-        self._lock = (self.bot.data_dir / "anima.lock").open("w")
-        try:
-            fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise AlreadyRunning(f"{self.bot.config.identity.display_name} 已经在另一个 anima 进程里运行了，先关掉那个再启动") from exc
+        self._lock_bot()
         if WEB_PLATFORMS & set(self.enabled_platforms()):
             port = self.port or int(self.bot.config.platform("playground").extras().get("port", 8765))
             if port_in_use(port):
                 raise AlreadyRunning(f"端口 {port} 已被占用（多半是另一个 anima play/run 还开着）。"
                                      f"关掉它，或换端口：--port {port + 1}")
 
-    async def run(self) -> None:
-        self.claim()
-        await self.setup()
-        tasks: list[asyncio.Task] = []
+    async def start_services(self) -> None:
+        """Platforms, her daily life and plugins: everything that belongs to the current persona."""
         for name, adapter in self.adapters.items():
             try:
                 await adapter.start(self.brain)
             except Exception:
                 logger.exception("Adapter {} failed to start", name)
-        tasks.append(asyncio.create_task(self.life.run()))
-        tasks.append(asyncio.create_task(self.plugins.start()))
+        await self.extensions.start()
+        self._services = [asyncio.create_task(self.life.run()), asyncio.create_task(self.plugins.start())]
+
+    async def stop_services(self) -> None:
+        for adapter in self.adapters.values():
+            with contextlib.suppress(Exception):
+                await adapter.stop()
+        with contextlib.suppress(Exception):
+            await self.plugins.stop()
+        with contextlib.suppress(Exception):
+            await self.extensions.stop()
+        for task in self._services:
+            task.cancel()
+        await asyncio.gather(*self._services, return_exceptions=True)
+        self._services = []
+        await self.brain.stop()
+        await self.memory.close()
+
+    async def switch(self, key: str) -> None:
+        """Become another persona without restarting: same web page, same port, her memories."""
+        async with self._switching:
+            if key == self.bot.key:
+                return
+            new_bot = load_bot(key)
+            previous = self.bot.key
+            await self.stop_services()
+            self._unlock_bot()
+            self.bot = new_bot
+            try:
+                self._lock_bot()
+            except AlreadyRunning:
+                self.bot = load_bot(previous)
+                self._lock_bot()
+                await self.setup()
+                await self.start_services()
+                raise
+            await self.setup()
+            await self.start_services()
+            if self.web is not None:
+                self.web.rebuild()
+            set_default_bot(key)
+            logger.info("Now running as {} ({})", self.bot.config.identity.display_name, key)
+
+    async def run(self) -> None:
+        self.claim()
+        await self.setup()
+        await self.start_services()
+        tasks: list[asyncio.Task] = []
 
         server = None
         if WEB_PLATFORMS & set(self.adapters):
             import uvicorn
 
-            from anima.web import create_app
+            from anima.web import RootApp
 
             port = self.port or int(self.bot.config.platform("playground").extras().get("port", 8765))
-            server = uvicorn.Server(uvicorn.Config(create_app(self), host="127.0.0.1", port=port, log_level="warning"))
+            self.web = RootApp(self)
+            server = uvicorn.Server(uvicorn.Config(self.web, host="127.0.0.1", port=port, log_level="warning",
+                                                   lifespan="on"))
             tasks.append(asyncio.create_task(server.serve()))
             if "playground" in self.adapters:
                 logger.info("Playground: http://127.0.0.1:{}", port)
@@ -181,13 +246,7 @@ class Runtime:
         logger.info("Shutting down…")
         if server:
             server.should_exit = True
-        for adapter in self.adapters.values():
-            with contextlib.suppress(Exception):
-                await adapter.stop()
-        with contextlib.suppress(Exception):
-            await self.plugins.stop()
-        await self.brain.stop()
+        await self.stop_services()
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        await self.memory.close()

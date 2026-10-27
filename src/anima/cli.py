@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from anima.config import BOTS_DIR, REPO_ROOT, env, list_bots, load_bot
+from anima.config import REPO_ROOT, env, list_bots, load_bot
 
 app = typer.Typer(help="Anima: a soul engine for human-like social bots.", no_args_is_help=True, add_completion=False)
 napcat_app = typer.Typer(help="Run NapCat (QQ ↔ OneBot) in Docker.", no_args_is_help=True)
@@ -29,6 +29,10 @@ app.add_typer(service_app, name="service")
 magpie_app = typer.Typer(help="Run the magpie model gateway (github.com/yetone/magpie) in Docker.", no_args_is_help=True)
 app.add_typer(providers_app, name="providers")
 app.add_typer(magpie_app, name="magpie")
+persona_app = typer.Typer(help="Personas: list, choose the default, export and import packs.", no_args_is_help=True)
+plugin_app = typer.Typer(help="Plugins (Anima and AstrBot) for a persona.", no_args_is_help=True)
+app.add_typer(persona_app, name="persona")
+app.add_typer(plugin_app, name="plugin")
 console = Console()
 
 NAPCAT_DIR = REPO_ROOT / "infra" / "napcat"
@@ -36,7 +40,13 @@ MAGPIE_DIR = REPO_ROOT / "infra" / "magpie"
 MAGPIE_CONTAINER = "anima-magpie"
 MAGPIE_GATEWAY = "http://127.0.0.1:3425/v1"
 ENV_FILE = REPO_ROOT / ".env"
-DEFAULT_BOT = "claudette"
+BOT_HELP = "人设（bots/ 下的文件夹名），默认是上次选的那个"
+
+
+def _bot(bot: str | None) -> str:
+    from anima.config import default_bot
+
+    return bot or default_bot()
 
 
 def _run(coro) -> None:
@@ -55,30 +65,33 @@ def _run(coro) -> None:
 
 
 @app.command()
-def play(bot: str = typer.Argument(DEFAULT_BOT), port: int = typer.Option(None, help="默认读 bot.toml"),
+def play(bot: str = typer.Argument(None, help=BOT_HELP), port: int = typer.Option(None, help="默认读 bot.toml"),
          fast: bool = typer.Option(False, help="跳过真人节奏，立即回复"),
          demo: bool = typer.Option(False, help="不调用模型，用预设台词")) -> None:
     """Open the local playground (web UI). No platform account needed."""
+    bot = _bot(bot)
     from anima.runtime import Runtime
 
     _run(Runtime(bot, platforms=["playground"], fast=fast, demo=demo, port=port).run())
 
 
 @app.command()
-def chat(bot: str = typer.Argument(DEFAULT_BOT), fast: bool = typer.Option(False, help="立即回复"),
+def chat(bot: str = typer.Argument(None, help=BOT_HELP), fast: bool = typer.Option(False, help="立即回复"),
          demo: bool = typer.Option(False, help="不调用模型")) -> None:
     """Chat with a bot in this terminal."""
+    bot = _bot(bot)
     from anima.runtime import Runtime
 
     _run(Runtime(bot, platforms=[], console=True, fast=fast, demo=demo).run())
 
 
 @app.command()
-def run(bot: str = typer.Argument(DEFAULT_BOT),
+def run(bot: str = typer.Argument(None, help=BOT_HELP),
         only: str = typer.Option(None, help="只启动这些平台，逗号分隔，比如 qq,bilibili"),
         port: int = typer.Option(None, help="网页端口，默认读 bot.toml"),
         verbose: bool = typer.Option(False, "-v", help="调试日志")) -> None:
     """Run a bot on every platform enabled in its bot.toml."""
+    bot = _bot(bot)
     from anima.runtime import Runtime
 
     platforms = [p.strip() for p in only.split(",")] if only else None
@@ -86,8 +99,9 @@ def run(bot: str = typer.Argument(DEFAULT_BOT),
 
 
 @app.command()
-def login(platform: str = typer.Argument(..., help="bilibili | douyin"), bot: str = typer.Option(DEFAULT_BOT)) -> None:
+def login(platform: str = typer.Argument(..., help="bilibili | douyin"), bot: str = typer.Option(None, help=BOT_HELP)) -> None:
     """Log a bot into a platform by scanning a QR code (use a dedicated account)."""
+    bot = _bot(bot)
     b = load_bot(bot)
     if platform == "bilibili":
         from anima.adapters.bilibili import qr_login
@@ -106,20 +120,23 @@ def login(platform: str = typer.Argument(..., help="bilibili | douyin"), bot: st
 
 
 @app.command()
-def new(name: str = typer.Argument(..., help="新 bot 的文件夹名，比如 luna")) -> None:
-    """Create a new bot from the template."""
-    target = BOTS_DIR / name
-    if target.exists():
-        raise typer.BadParameter(f"{target} 已经存在")
-    shutil.copytree(BOTS_DIR / "_template", target)
-    toml = target / "bot.toml"
-    toml.write_text(toml.read_text(encoding="utf-8").replace("{{name}}", name), encoding="utf-8")
-    console.print(f"[green]创建好了[/] → bots/{name}/  先写 persona.md，然后 [bold]uv run anima play {name}[/]")
+def new(name: str = typer.Argument(..., help="新人设的文件夹名，比如 luna"),
+        display: str = typer.Option(None, "--name", help="她的名字，默认同文件夹名")) -> None:
+    """Create a new persona (only bot.toml + persona.md; the rest comes from bots/_template)."""
+    from anima import personas
+
+    try:
+        key = personas.create({"key": name, "name": display or name})
+    except (ValueError, FileExistsError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(f"[green]创建好了[/] → bots/{key}/  先写 persona.md，然后 [bold]uv run anima play {key}[/]\n"
+                  "也可以在管理后台的「人设」页填表、用一句话让模型起草，或者导入 SillyTavern 角色卡。")
 
 
 @app.command()
-def memory(bot: str = typer.Argument(DEFAULT_BOT), who: str = typer.Option(None, help="按名字查一个人")) -> None:
+def memory(bot: str = typer.Argument(None, help=BOT_HELP), who: str = typer.Option(None, help="按名字查一个人")) -> None:
     """See who a bot knows and what it remembers about them."""
+    bot = _bot(bot)
     from anima.core.memory import Memory
 
     async def show() -> None:
@@ -142,8 +159,9 @@ def memory(bot: str = typer.Argument(DEFAULT_BOT), who: str = typer.Option(None,
 
 
 @app.command()
-def diary(bot: str = typer.Argument(DEFAULT_BOT), days: int = 7) -> None:
+def diary(bot: str = typer.Argument(None, help=BOT_HELP), days: int = 7) -> None:
     """Read a bot's diary."""
+    bot = _bot(bot)
     from anima.core.memory import Memory
 
     async def show() -> None:
@@ -158,11 +176,12 @@ def diary(bot: str = typer.Argument(DEFAULT_BOT), days: int = 7) -> None:
 
 
 @app.command("eval")
-def eval_(bot: str = typer.Argument(DEFAULT_BOT),
+def eval_(bot: str = typer.Argument(None, help=BOT_HELP),
           provider: str = typer.Option(None, help="提供商 id（默认用当前生效的路由）"),
           model: str = typer.Option(None, help="模型 id"),
           only: str = typer.Option(None, help="只跑这些场景，逗号分隔，比如 human,injection")) -> None:
     """考考她: run the persona exam against a provider and save a report."""
+    bot = _bot(bot)
     from anima import evals
     from anima.llm import build_target, make_provider
     from anima.llm.registry import ProviderStore, Target
@@ -203,8 +222,9 @@ def _port_open(host: str, port: int) -> bool:
 
 
 @app.command()
-def doctor(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
+def doctor(bot: str = typer.Argument(None, help=BOT_HELP)) -> None:
     """Check everything a bot needs, with a hint for each missing piece."""
+    bot = _bot(bot)
     b = load_bot(bot)
     cfg = b.config
     table = Table("", "检查项", "说明", show_lines=False)
@@ -291,7 +311,7 @@ def napcat_up() -> None:
         napcat_init()
     if _compose("up", "-d") == 0:
         console.print(f"WebUI：[bold]http://127.0.0.1:6100/webui?token={env('NAPCAT_WEBUI_TOKEN')}[/]\n"
-                      "用可乐的 QQ 小号扫码登录；也可以 [bold]uv run anima napcat qr[/] 直接打开二维码。")
+                      "用给她准备的 QQ 小号扫码登录；也可以 [bold]uv run anima napcat qr[/] 直接打开二维码。")
 
 
 @napcat_app.command("down")
@@ -321,8 +341,9 @@ def napcat_qr() -> None:
 
 
 @providers_app.command("list")
-def providers_list(bot: str = typer.Option(DEFAULT_BOT)) -> None:
+def providers_list(bot: str = typer.Option(None, help=BOT_HELP)) -> None:
     """Connected providers and what the bot uses right now."""
+    bot = _bot(bot)
     from anima.llm.registry import ProviderStore, load_routing
 
     store = ProviderStore()
@@ -366,8 +387,9 @@ def providers_add(preset_id: str = typer.Argument(..., help="deepseek、kimi、z
 
 
 @providers_app.command("test")
-def providers_test(provider_id: str, model: str = typer.Option(None), bot: str = typer.Option(DEFAULT_BOT)) -> None:
+def providers_test(provider_id: str, model: str = typer.Option(None), bot: str = typer.Option(None, help=BOT_HELP)) -> None:
     """Send a tiny request and report latency."""
+    bot = _bot(bot)
     import time as _time
 
     from anima.llm import build_target
@@ -392,8 +414,9 @@ def providers_test(provider_id: str, model: str = typer.Option(None), bot: str =
 
 @providers_app.command("use")
 def providers_use(provider_id: str, model: str = typer.Option(None), side: str = typer.Option(None, help="后台用 provider:model"),
-                  backup: str = typer.Option(None, help="备用 provider:model"), bot: str = typer.Option(DEFAULT_BOT)) -> None:
+                  backup: str = typer.Option(None, help="备用 provider:model"), bot: str = typer.Option(None, help=BOT_HELP)) -> None:
     """Point a bot's brain at a provider (applies on the next start; the panel switches live)."""
+    bot = _bot(bot)
     from anima.llm.registry import ProviderStore, Routing, Target, save_routing
 
     store = ProviderStore()
@@ -484,7 +507,8 @@ def magpie_connect() -> None:
     entry = store.upsert({"id": entry.id if entry else None, "preset": "magpie", "base_url": MAGPIE_GATEWAY,
                           "api_key": key, "models": models})
     ds = [m for m in models if m.split("/", 1)[0] in ("deepseek", "deepseek-ai")]
-    console.print(f"[green]可乐已接上 magpie[/]（网关里有 {len(models)} 个模型）。" + (
+    console.print("[green]已接上 magpie[/]"
+                  f"（网关里有 {len(models)} 个模型）。" + (
         f"DeepSeek 可用：{', '.join(ds)}，她没有自己的 DeepSeek key 时会自动走这里。" if ds else
         "magpie 里还没有 DeepSeek：[bold]uv run anima magpie open[/] 打开管理页添加。"))
 
@@ -543,8 +567,9 @@ def _plist_path(bot: str) -> Path:
 
 
 @service_app.command("install")
-def service_install(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
+def service_install(bot: str = typer.Argument(None, help=BOT_HELP)) -> None:
     """Start the bot at login and restart it if it ever stops."""
+    bot = _bot(bot)
     b = load_bot(bot)
     uv = shutil.which("uv") or str(Path.home() / ".local/bin/uv")
     logs = b.data_dir / "logs"
@@ -570,16 +595,18 @@ def service_install(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
 
 
 @service_app.command("uninstall")
-def service_uninstall(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
+def service_uninstall(bot: str = typer.Argument(None, help=BOT_HELP)) -> None:
     """Stop the background service and remove it."""
+    bot = _bot(bot)
     subprocess.call(["launchctl", "bootout", f"gui/{os.getuid()}/{_label(bot)}"])
     _plist_path(bot).unlink(missing_ok=True)
     console.print("[green]已移除[/]")
 
 
 @service_app.command("status")
-def service_status(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
+def service_status(bot: str = typer.Argument(None, help=BOT_HELP)) -> None:
     """Is the background service running?"""
+    bot = _bot(bot)
     out = subprocess.run(["launchctl", "print", f"gui/{os.getuid()}/{_label(bot)}"], capture_output=True, text=True)
     if out.returncode != 0:
         console.print("没有安装后台服务")
@@ -591,3 +618,105 @@ def service_status(bot: str = typer.Argument(DEFAULT_BOT)) -> None:
 
 if __name__ == "__main__":
     app()
+
+
+# ------------------------------------------------------------------ personas & plugins
+
+
+@persona_app.command("list")
+def persona_list() -> None:
+    """Every persona under bots/."""
+    from anima import personas
+    from anima.config import default_bot
+
+    table = Table()
+    for col in ("", "文件夹", "名字", "介绍"):
+        table.add_column(col)
+    chosen = default_bot()
+    for p in personas.list_personas():
+        table.add_row("★" if p["key"] == chosen else "", p["key"], p["name"], escape(p.get("tagline", ""))[:50])
+    console.print(table)
+
+
+@persona_app.command("use")
+def persona_use(key: str) -> None:
+    """Make a persona the default for `anima play` / `anima run` (a running one switches in the console)."""
+    from anima.config import list_bots, set_default_bot
+
+    if key not in list_bots():
+        raise typer.BadParameter(f"没有人设 {key}")
+    set_default_bot(key)
+    console.print(f"[green]默认人设：{key}[/]")
+
+
+@persona_app.command("export")
+def persona_export(key: str, out: Path = typer.Option(None, help="输出文件，默认 <key>.anima.zip")) -> None:
+    """Pack a persona (text and art only) into a .zip."""
+    from anima import personas
+
+    target = out or Path(f"{key}.anima.zip")
+    target.write_bytes(personas.export_pack(key))
+    console.print(f"[green]导出好了[/] → {target}")
+
+
+@persona_app.command("import")
+def persona_import(file: Path) -> None:
+    """Import a persona pack (.zip) or a SillyTavern character card (.png / .json)."""
+    from anima import personas
+    from anima.core.cards import create_bot_from_card
+
+    data = file.read_bytes()
+    key = personas.import_pack(data) if data[:2] == b"PK" else create_bot_from_card(data).name
+    console.print(f"[green]导入好了[/] → bots/{key}/")
+
+
+@plugin_app.command("list")
+def plugin_list(bot: str = typer.Option(None, help=BOT_HELP)) -> None:
+    """Plugins found in plugins/ and data/plugins/, and which this persona uses."""
+    from anima.plugin_host import discover
+
+    enabled = set(load_bot(_bot(bot)).config.plugins)
+    table = Table()
+    for col in ("", "id", "名字", "类型", "来源", "说明"):
+        table.add_column(col)
+    for pid, info in discover().items():
+        table.add_row("✓" if pid in enabled else "", pid, info.name, info.kind, info.source, escape(info.description)[:40])
+    console.print(table)
+
+
+def _toggle_plugin(bot: str, pid: str, on: bool) -> None:
+    import tomlkit
+
+    path = load_bot(bot).dir / "bot.toml"
+    doc = tomlkit.parse(path.read_text(encoding="utf-8"))
+    doc["plugins"] = [p for p in (doc.get("plugins") or []) if p != pid] + ([pid] if on else [])
+    path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+
+
+@plugin_app.command("enable")
+def plugin_enable(pid: str, bot: str = typer.Option(None, help=BOT_HELP)) -> None:
+    """Turn a plugin on for a persona (applies on the next start; the console does it live)."""
+    from anima.plugin_host import discover
+
+    if pid not in discover():
+        raise typer.BadParameter(f"没有插件 {pid}；先 anima plugin install <地址>")
+    _toggle_plugin(_bot(bot), pid, True)
+    console.print(f"[green]{pid} 已启用[/]")
+
+
+@plugin_app.command("disable")
+def plugin_disable(pid: str, bot: str = typer.Option(None, help=BOT_HELP)) -> None:
+    """Turn a plugin off for a persona."""
+    _toggle_plugin(_bot(bot), pid, False)
+    console.print(f"{pid} 已停用")
+
+
+@plugin_app.command("install")
+def plugin_install(source: str) -> None:
+    """Install a plugin from a GitHub repository or zip link (Anima or AstrBot format). It runs on this computer."""
+    from anima.plugin_host import install_from
+
+    info = asyncio.run(install_from(source))
+    console.print(f"[green]装好了[/] {info.name}（{info.kind}，id：{info.id}）→ data/plugins/{info.id}\n"
+                  f"启用：[bold]uv run anima plugin enable {info.id}[/]")
+

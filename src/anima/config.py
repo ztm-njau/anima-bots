@@ -6,6 +6,7 @@ friends hold the soul. Secrets never live there; they come from the repo-root ``
 
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from dataclasses import dataclass
@@ -34,6 +35,11 @@ class IdentityConfig(BaseModel):
     display_name: str = "Bot"
     aliases: list[str] = []
     timezone: str = "Asia/Shanghai"
+    tagline: str = ""  # one line for the persona gallery
+    avatar: str = ""  # an image in the bot folder, e.g. "avatar.png"
+    color: str = ""  # accent colour for her avatar, e.g. "#b5482e"
+    tags: list[str] = []
+    author: str = ""
 
 
 class LLMConfig(BaseModel):
@@ -74,15 +80,13 @@ class BehaviorConfig(BaseModel):
     interjections_per_hour: int = 4  # unprompted chime-ins per group
     repeat_chance: float = 0.3  # chance she joins a 复读 chain
     auto_quote: bool = True  # quote the message she answers once the group has moved on
-    name_false_friends: list[str] = [  # words that contain her name but aren't about her
-        "喝可乐", "可口可乐", "百事可乐", "可乐鸡翅", "冰可乐", "无糖可乐", "零度可乐", "健怡可乐",
-        "一瓶可乐", "一罐可乐", "一杯可乐", "瓶可乐", "罐可乐", "杯可乐", "可乐瓶", "可乐罐", "可乐味", "可乐姜",
-    ]
+    name_false_friends: list[str] = []  # words that contain her name but aren't about her, e.g. 喝可乐
     delays: bool = True
     history_limit: int = 40
     interests: list[str] = []
     caption_images: bool = True  # describe images once and keep the description in memory
     collect_stickers: float = 0.5  # chance she saves a sticker someone sent (0 = never)
+    shared_stickers: bool = True  # also use the shared starter pack in bots/_template/memes
     sticker_cap: int = 600
     lore_budget: int = 1800  # characters of 世界书 per turn
     recall: bool = True  # bring up related old facts and moments
@@ -136,6 +140,8 @@ class BotConfig(BaseModel):
     life: LifeConfig = LifeConfig()
     safety: SafetyConfig = SafetyConfig()
     skills: list[str] = ["*"]
+    plugins: list[str] = []  # Anima plugins she uses (plugins/ and data/plugins/), by id
+    plugin_config: dict[str, dict[str, Any]] = {}  # [plugin_config.<id>] settings for each plugin
     platforms: dict[str, PlatformConfig] = {}
     chats: dict[str, ChatOverride] = {}
 
@@ -185,20 +191,58 @@ class Bot:
         path.chmod(0o700)
         return path
 
+    def file(self, relative: str) -> Path:
+        """Her own copy of a file, or the shared one in bots/_template (schedule, stickers, guard…)."""
+        own = self.dir / relative
+        return own if own.exists() else shared_dir() / relative
+
     def read(self, relative: str, default: str = "") -> str:
-        path = self.dir / relative
+        path = self.file(relative)
         return path.read_text(encoding="utf-8") if path.exists() else default
 
     def read_toml(self, relative: str) -> dict[str, Any]:
-        path = self.dir / relative
+        path = self.file(relative)
         if not path.exists():
             return {}
         with path.open("rb") as fh:
             return tomllib.load(fh)
 
 
+def shared_dir() -> Path:
+    return BOTS_DIR / "_template"
+
+
 def list_bots() -> list[str]:
-    return sorted(p.name for p in BOTS_DIR.iterdir() if p.is_dir() and not p.name.startswith("_"))
+    return sorted(p.name for p in BOTS_DIR.iterdir()
+                  if p.is_dir() and not p.name.startswith(("_", ".")) and (p / "bot.toml").exists())
+
+
+def _settings_path() -> Path:
+    return DATA_DIR / "anima.json"
+
+
+def app_settings() -> dict[str, Any]:
+    try:
+        return json.loads(_settings_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def default_bot() -> str:
+    """The persona `anima play` starts when none is named: the last one chosen, else the first."""
+    bots = list_bots()
+    chosen = app_settings().get("default_bot")
+    if chosen in bots:
+        return chosen
+    if not bots:
+        raise FileNotFoundError(f"No bots in {BOTS_DIR}; create one with `uv run anima new <name>`")
+    return bots[0]
+
+
+def set_default_bot(key: str) -> None:
+    settings = app_settings() | {"default_bot": key}
+    _settings_path().parent.mkdir(parents=True, exist_ok=True)
+    _settings_path().write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_bot(key: str) -> Bot:

@@ -1,6 +1,7 @@
 # Third-party notices · 第三方声明
 
-Anima's own code, docs, persona files and the starter sticker pack are MIT licensed (see `LICENSE`).
+Anima's own code, docs, persona files (可乐, 晚舟, 小满), bundled plugins and the starter sticker pack
+are MIT licensed (see `LICENSE`).
 This file lists what Anima uses, talks to, or learned from, and under which terms.
 
 Anima 自己的代码、文档、人设文件和自带表情包都以 MIT 协议发布。下面列出它用到、对接或借鉴的第三方项目及其协议。
@@ -43,7 +44,15 @@ Referenced by name in compose files or docs; not redistributed here. Each has it
 - **Open-Meteo** (open-meteo.com): weather data for the `weather` skill.
 - **Microsoft Edge text-to-speech**, reached through edge-tts: voice notes.
 - **MCP servers** you add (for example `mcp-server-time`, `mcp-server-fetch`, `howtocook-mcp`): run
-  only if you add them; each under its own license.
+  only if you add them; each under its own license. The market searches the official
+  **MCP Registry** (registry.modelcontextprotocol.io) and lists servers by name only.
+- **Plugins you install** from the market or a link (Anima plugins, AstrBot plugins): downloaded by you
+  from their own repositories, each under its own license. The market reads the public plugin lists of
+  **AstrBot** (github.com/AstrBotDevs/AstrBot_Plugins_Collection) and **NoneBot**
+  (github.com/nonebot/registry) and links to each project.
+- **hitokoto.cn**: the public API behind the bundled `hitokoto` plugin.
+- **NoneBot2, Koishi, AstrBot, Yunzai** and other OneBot v11 frameworks: connect through the OneBot
+  bridge if you run them; nothing of theirs is included.
 
 ## Formats and ideas · 兼容的格式与借鉴的思路
 
@@ -56,11 +65,17 @@ No code from these projects is included.
   one-click switching are inspired by it.
 - **New API** (github.com/QuantumNous/new-api) and **Cherry Studio** (github.com/CherryHQ/cherry-studio):
   the connection test, model-list fetch and per-provider settings in the provider panel are inspired by them.
+- **AstrBot** (github.com/AstrBotDevs/AstrBot, AGPL-3.0): `src/anima/compat/astrbot.py` provides
+  the same plugin-facing names (`astrbot.api.star`, `filter.command`, `AstrMessageEvent`…) so that
+  AstrBot plugins can run, written from the public plugin documentation. It contains no AstrBot code.
+- **OneBot v11** (github.com/botuniverse/onebot-11): the protocol the QQ adapter and the bridge speak.
+- **Model Context Protocol** (modelcontextprotocol.io): the plugin protocol for MCP servers, and the
+  protocol of Anima's own `/mcp` endpoint.
 - **Contributor Covenant** 2.1 (CC BY 4.0): `CODE_OF_CONDUCT.md` is adapted from it.
 
 ## Assets · 素材
 
-- The 16 starter stickers in `bots/claudette/memes/` are original drawings made by
+- The 16 starter stickers in `bots/_template/memes/` (shared by every persona) are original drawings made by
   `scripts/make_starter_stickers.py` from plain shapes (MIT). Their captions are rendered with a
   system CJK font installed on the machine that runs the script.
 - The landscape backgrounds in `src/anima/web/static/` are original SVGs (MIT).

@@ -104,7 +104,8 @@ class Brain:
         self.lorebook = Lorebook(bot.dir / "lorebook")
         self.memes = StickerLibrary(bot, memory)
         self.admin = Admin(self)
-        self.plugins = None  # PluginManager, set by the runtime
+        self.plugins = None  # PluginManager (MCP servers), set by the runtime
+        self.extensions = None  # PluginHost (Anima and AstrBot plugins), set by the runtime
         self._tasks: set[asyncio.Task] = set()
 
     # ------------------------------------------------------------ lifecycle
@@ -132,6 +133,11 @@ class Brain:
         if chat.key not in self.sessions:
             self.sessions[chat.key] = ChatSession(chat)
         return self.sessions[chat.key]
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        ident = self.cfg.identity
+        return tuple(n for n in (ident.display_name, ident.name, *ident.aliases) if n)
 
     def life(self) -> LifeState:
         return self.schedule.state()
@@ -167,6 +173,15 @@ class Brain:
             self.trace.emit("command", chat=ev.chat.key, sender=ev.sender.name, text=ev.text)
             await self.admin.reply(ev, answer)
             return
+        if self.extensions is not None and gate != "listen" and (not ev.meta.get("listen_only") or ev.meta.get("bridged")):
+            out = await self.extensions.command(ev, self.admin.is_owner(ev))
+            if out is not None:
+                self.trace.emit("command", chat=ev.chat.key, sender=ev.sender.name, text=ev.text)
+                if out:
+                    await self.admin.reply(ev, out)
+                return
+            if not await self.extensions.message(ev):
+                return
         if gate == "listen":
             ev.meta["listen_only"] = True
         now = self.clock.timestamp()
@@ -353,6 +368,8 @@ class Brain:
             decision.target = self.policy.target(batch, None, cfg) if decision.addressed else decision.target
             self.trace.emit("rethink", chat=chat.key, added=[e.render() for e in news])
         self._auto_quote(chat, reply, batch, decision, cfg, await self._moved_on(chat, decision))
+        if self.extensions is not None:
+            await self.extensions.reply(chat, reply)
         waiting = {id(e) for e in session.buffer}  # already-known leftovers don't count as interruptions
         interrupted = (lambda: any(id(e) not in waiting for e in self._relevant_news(session, batch))) if cfg.interrupt else None
         unsent = await self.deliver(chat, reply, interrupted=interrupted)
@@ -454,6 +471,8 @@ class Brain:
         history = await self.memory.recent(chat.key, cfg.history_limit)
         turns = self.prompt.turns(history, chat, batch, vision=self.llm.supports_vision)
         notes = [*(notes or []), *self._chat_notes(chat, batch, decision)]
+        if self.extensions is not None:
+            notes += await self.extensions.scene(chat, batch)
         scene = await self.scene(chat, batch, decision.reason, notes, instruction)
         dynamic = self.prompt.dynamic(scene)
         tools = [s for s in self.skills if s.available_on(chat.platform)]
@@ -479,7 +498,7 @@ class Brain:
 
         raw = self.guard.deflect(None) if result.refused else result.text
         max_bubbles = cfg.group_max_bubbles if chat.is_group_like else cfg.max_bubbles
-        reply = parse_reply(raw, self.stickers, max_bubbles + 2)
+        reply = parse_reply(raw, self.stickers, max_bubbles + 2, self.names)
         reply.bubbles = self.humanizer.shape(reply.bubbles, max_bubbles, cfg)
         for bubble in reply.bubbles:
             for seg in bubble.segments:
@@ -488,7 +507,7 @@ class Brain:
             category = self.guard.check(bubble.text + (bubble.voice or ""))
             if category:
                 self.trace.emit("guard", chat=chat.key, category=category, text=bubble.source)
-                reply = parse_reply(self.guard.deflect(category), self.stickers)
+                reply = parse_reply(self.guard.deflect(category), self.stickers, names=self.names)
                 break
         aim = decision.target or (batch[-1] if batch else None)
         if reply.poke == "*":
@@ -575,6 +594,25 @@ class Brain:
                 continue
             segments.append(seg)
         bubble.segments = segments
+
+    async def answer(self, chat: Chat, sender, text: str, images=None, reason: str = "有人跟你说话") -> list[str]:
+        """One message in, her bubbles out as plain lines, remembered like any chat. For the /v1 and
+        MCP endpoints, where there is no platform to pace or deliver to."""
+        import uuid
+
+        ev = Incoming(chat, sender, text, message_id=uuid.uuid4().hex[:10], images=list(images or []), mentions_me=True)
+        await self.memory.touch_user(chat.platform, sender.id, sender.name)
+        await self.memory.record(chat.key, ev.user_key, sender.name, ev.render(), platform_msg_id=ev.message_id)
+        reply = await self.compose(chat, [ev], Decision("reply", reason, addressed=True, target=ev))
+        lines = []
+        for bubble in reply.bubbles:
+            plain = "".join(s.value if s.type == "text" else self.stickers.emoji(s.value) if s.type == "sticker" else ""
+                            for s in bubble.segments) or (bubble.voice or "")
+            if plain:
+                lines.append(plain)
+                await self.memory.record(chat.key, "self", self.cfg.identity.display_name, bubble.source or plain,
+                                         is_self=True)
+        return lines
 
     async def speak(self, chat: Chat, instruction: str, notes: list[str] | None = None) -> Reply | None:
         """Start a conversation herself: greetings, reminders, sharing something, birthdays."""

@@ -18,7 +18,7 @@ def test_lines_become_bubbles_with_inline_stickers():
 
 
 def test_markdown_and_speaker_prefix_are_flattened():
-    reply = parse_reply("可乐：**好耶**\n- 第一点\n# 标题\n`代码`", BOOK)
+    reply = parse_reply("可乐：**好耶**\n- 第一点\n# 标题\n`代码`", BOOK, names=("可乐",))
     assert [b.text for b in reply.bubbles] == ["好耶", "第一点", "标题", "代码"]
 
 

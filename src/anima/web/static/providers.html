@@ -97,7 +97,7 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 <div class="wrap">
   <header class="top">
     <a class="back" href="/">← 回到聊天</a><a class="back" href="/console">管理后台</a>
-    <div><h1>模型提供商</h1><p>给 <b id="botName">可乐</b> 接上大脑：选一家，填好 key，测一下，点「应用」就换上了，不用重启。</p></div>
+    <div><h1>模型提供商</h1><p>给 <b id="botName">她</b> 接上大脑：选一家，填好 key，测一下，点「应用」就换上了，不用重启。</p></div>
     <div class="pill" id="activePill">…</div><div data-lang-slot></div>
   </header>
 
@@ -158,7 +158,7 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/static/i18n.js?v=4"></script>
+<script src="/static/i18n.js?v=5"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { state: null, sel: null, draft: null, found: [], result: null };
@@ -287,7 +287,7 @@ function renderMagpieHint() {
   if (!gw || !ds || using) { box.style.display = "none"; return; }
   box.style.display = "";
   box.innerHTML = `<div class="logo" style="background:#1C1C1E;width:28px;height:28px;font-size:11px;border-radius:9px">MA</div>
-    <span>${t("你的 magpie 网关里有 <b>{model}</b>：key 留在 magpie，可乐直接借用", { model: esc(ds) })}</span><button id="useMagpie">${t("一键用它")}</button>`;
+    <span>${t("你的 magpie 网关里有 <b>{model}</b>：key 留在 magpie，她直接借用", { model: esc(ds) })}</span><button id="useMagpie">${t("一键用它")}</button>`;
   $("useMagpie").onclick = async () => {
     const body = { main: { provider: gw.id, model: ds, params: { temperature: 1.3 } }, side: { provider: gw.id, model: ds }, backups: [] };
     try { S.state = await api("/api/routing", { method: "PUT", body }); render(); toast(t("换好了：经 magpie 使用 {model}", { model: ds })); } catch (e) { toast(e.message); }
@@ -385,7 +385,7 @@ $("hear").onclick = () => busy($("hear"), async () => {
   showResult(true, () => esc(t("正在请 {name} 用 {model} 打个招呼…", { name: S.state.bot.name, model })));
   const r = await api(`/api/providers/${p.id}/preview`, { method: "POST", body: { model: chosenModel() } });
   const bubbles = r.bubbles.map((b, i) => `<div class="b" style="animation-delay:${i * 0.35}s">${b.voice ? "🎤 " + esc(b.voice) : esc(b.text)}</div>`).join("");
-  showResult(true, () => `<b>${t("你：")}</b>${t("嗨可乐！第一次见面，跟我打个招呼、介绍一下自己吧")}<div class="preview">${bubbles || `<div class="empty">${t("（她没说话）")}</div>`}</div><div class="actions"><span class="meta">${esc(r.model)} · ${r.latency_ms} ms${r.currency ? " · " + money(r.cost, r.currency) : ""}</span></div>`);
+  showResult(true, () => `<b>${t("你：")}</b>${t("嗨{name}！第一次见面，跟我打个招呼、介绍一下自己吧", { name: $("botName").textContent })}<div class="preview">${bubbles || `<div class="empty">${t("（她没说话）")}</div>`}</div><div class="actions"><span class="meta">${esc(r.model)} · ${r.latency_ms} ms${r.currency ? " · " + money(r.cost, r.currency) : ""}</span></div>`);
 });
 $("exam").onclick = () => busy($("exam"), async () => {
   const p = await save(true);

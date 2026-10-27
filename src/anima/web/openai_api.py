@@ -1,7 +1,7 @@
-"""Claudette as an OpenAI-compatible "model", so other bot frameworks can use her whole brain.
+"""The bot as an OpenAI-compatible "model", so other bot frameworks can use her whole brain.
 
 AstrBot, NoneBot, Koishi, SillyTavern and anything else with an "OpenAI provider" setting can
-point at ``http://<this mac>:8765/v1`` with model ``claudette``: each conversation keeps her
+point at ``http://127.0.0.1:8765/v1`` with the bot's folder name as the model (e.g. ``claudette``): each conversation keeps her
 persona, memory, 世界书, mood and tools. Set ``ANIMA_API_KEY`` in .env to let other machines and
 Docker containers in; without it only this computer may call.
 """
@@ -17,8 +17,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from anima.core.events import Chat, Image, Incoming, Sender
-from anima.core.policy import Decision
+from anima.core.events import Chat, Image, Sender
 from anima.llm.registry import env_lookup
 
 if TYPE_CHECKING:
@@ -44,7 +43,6 @@ def _text_and_images(content: Any) -> tuple[str, list[Image]]:
 
 def openai_router(runtime: Runtime, is_local) -> APIRouter:
     router = APIRouter(prefix="/v1")
-    brain = runtime.brain
 
     def check(request: Request) -> None:
         key = env_lookup("ANIMA_API_KEY")
@@ -73,18 +71,7 @@ def openai_router(runtime: Runtime, is_local) -> APIRouter:
         session = who or hashlib.sha1(json.dumps(messages[:1], ensure_ascii=False).encode()).hexdigest()[:12]
         chat = Chat("api", "private", session[:64], last.get("name") or "")
         sender = Sender(f"api-{session[:64]}", last.get("name") or "朋友")
-        ev = Incoming(chat, sender, text, message_id=uuid.uuid4().hex[:10], images=images, mentions_me=True)
-        await brain.memory.touch_user("api", sender.id, sender.name)
-        await brain.memory.record(chat.key, ev.user_key, sender.name, ev.render(), platform_msg_id=ev.message_id)
-        reply = await brain.compose(chat, [ev], Decision("reply", "有人通过其他机器人框架跟你说话"))
-        lines = []
-        for bubble in reply.bubbles:
-            plain = "".join(s.value if s.type == "text" else brain.stickers.emoji(s.value) if s.type == "sticker" else ""
-                            for s in bubble.segments) or (bubble.voice or "")
-            if plain:
-                lines.append(plain)
-                await brain.memory.record(chat.key, "self", brain.cfg.identity.display_name, bubble.source or plain,
-                                          is_self=True)
+        lines = await runtime.brain.answer(chat, sender, text, images, "有人通过其他机器人框架跟你说话")
         content = "\n".join(lines)
         created, rid = int(time.time()), f"chatcmpl-{uuid.uuid4().hex[:16]}"
         if body.get("stream"):

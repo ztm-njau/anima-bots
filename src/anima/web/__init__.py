@@ -61,6 +61,10 @@ async def snapshot(runtime: Runtime) -> dict[str, Any]:
         "usage": brain.usage.__dict__,
         "fast": brain.humanizer.scale == 0,
         "name": brain.cfg.identity.display_name,
+        "key": runtime.bot.key,
+        "color": brain.cfg.identity.color,
+        "avatar": f"/api/console/personas/{runtime.bot.key}/avatar" if brain.cfg.identity.avatar or any(
+            runtime.bot.dir.glob("avatar.*")) else "",
         "skills": [s.name for s in brain.skills],
         "platforms": sorted(brain.adapters),
     }
@@ -90,6 +94,53 @@ def wake_offset(clock: Clock, target_hour: int = 20) -> float:
     current = clock.to_local(real)
     target = current.replace(hour=target_hour, minute=0, second=0, microsecond=0)
     return (target.timestamp() - real) / 3600
+
+
+class RootApp:
+    """What uvicorn serves. The FastAPI app inside is rebuilt when the persona changes, so every route
+    sees the new brain; ``/mcp`` (Anima as an MCP server) lives outside it and follows the runtime."""
+
+    def __init__(self, runtime: Runtime, mcp: bool = True):
+        self.runtime = runtime
+        self.inner = create_app(runtime)
+        self.mcp = None
+        if mcp:
+            try:
+                from anima.mcp_server import build_mcp_app
+
+                self.mcp = build_mcp_app(runtime)
+            except Exception as exc:  # noqa: BLE001 - the rest of the site works without it
+                from loguru import logger
+
+                logger.warning("MCP server unavailable: {}", exc)
+
+    def rebuild(self) -> None:
+        self.inner = create_app(self.runtime)
+
+    def _mcp_allowed(self, scope) -> bool:
+        from anima.llm.registry import env_lookup
+
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+        key = env_lookup("ANIMA_API_KEY")
+        if key and headers.get("authorization", "").removeprefix("Bearer ").strip() == key:
+            return True
+        client = (scope.get("client") or ("", 0))[0]
+        return client in ("127.0.0.1", "::1") and is_local(headers.get("host"), headers.get("origin"))
+
+    async def __call__(self, scope, receive, send) -> None:
+        if self.mcp is not None:
+            if scope["type"] == "lifespan":
+                await self.mcp(scope, receive, send)  # runs the MCP session manager
+                return
+            path = scope.get("path", "")
+            if scope["type"] == "http" and (path == "/mcp" or path.startswith("/mcp/")):
+                if not self._mcp_allowed(scope):
+                    await JSONResponse({"error": "set ANIMA_API_KEY to use /mcp from another machine"},
+                                       status_code=403)(scope, receive, send)
+                    return
+                await self.mcp(scope, receive, send)
+                return
+        await self.inner(scope, receive, send)
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -125,11 +176,13 @@ def create_app(runtime: Runtime) -> FastAPI:
         return app
 
     from anima.web.console import console_router, sticker_route
+    from anima.web.gallery import gallery_router
     from anima.web.openai_api import openai_router
     from anima.web.providers import provider_router
 
     app.include_router(provider_router(runtime))
     app.include_router(console_router(runtime))
+    app.include_router(gallery_router(runtime))
     app.include_router(openai_router(runtime, is_local))
     app.add_api_route("/sticker/{sticker_id:path}", sticker_route(runtime), methods=["GET"])
 

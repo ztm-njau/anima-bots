@@ -1,7 +1,8 @@
 # QQ (via NapCat)
 
 NapCat runs Linux QQ inside Docker (Docker Desktop or OrbStack) and exposes it as a
-OneBot v11 WebSocket on `127.0.0.1:3001`. Claudette connects to it as a client.
+OneBot v11 WebSocket on `127.0.0.1:3001`. Anima connects to it as a client. To run NoneBot, Koishi or
+AstrBot on the same account, see the OneBot bridge in [plugins.md](../plugins.md).
 
 1. **Prepare a QQ account for her.** A secondary account, not your main one: automated accounts
    can be restricted. Give it a nickname and avatar that say she's a virtual character.

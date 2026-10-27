@@ -104,6 +104,7 @@ def console_router(runtime: Runtime) -> APIRouter:
         users = await memory.users(limit=10000)
         return {
             "bot": brain.cfg.identity.display_name,
+            "color": brain.cfg.identity.color,
             "model": f"{brain.llm.label} · {brain.llm.model}",
             "demo": bool(getattr(brain.llm, "demo", False)),
             "people": len(users),

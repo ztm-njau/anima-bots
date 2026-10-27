@@ -3,12 +3,17 @@
 
 skills = ["*"]                      # every built-in skill; e.g. ["*", "-weather"] to drop one
 owners = []                         # who may manage her with / commands, e.g. ["qq:123456"]
+plugins = []                        # Anima / AstrBot plugins she uses, by id (console: 扩展), e.g. ["hitokoto"]
 
 [identity]
 name = "Claudette"
 display_name = "可乐"
 aliases = ["可乐", "claudette", "克劳黛特", "可乐酱", "乐乐"]
 timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever the computer is
+tagline = "住在网线里的 AI 女孩，好奇、嘴贫、心软，爱星空和冷知识"
+color = "#b5482e"
+tags = ["元气", "吐槽", "天文", "群聊"]
+author = "Anima"
 
 [llm]
 # Connect and switch providers in the playground's 模型提供商 panel (http://127.0.0.1:8765/providers);
@@ -52,6 +57,10 @@ history_limit = 40
 caption_images = true               # describe images once and remember what they showed
 collect_stickers = 0.5              # chance she saves a sticker someone sends (0 = never)
 recall = true                       # bring up related old facts and moments
+name_false_friends = [              # words that contain her name but aren't about her
+  "喝可乐", "可口可乐", "百事可乐", "可乐鸡翅", "冰可乐", "无糖可乐", "零度可乐", "健怡可乐",
+  "一瓶可乐", "一罐可乐", "一杯可乐", "瓶可乐", "罐可乐", "杯可乐", "可乐瓶", "可乐罐", "可乐味", "可乐姜",
+]
 
 # Per-chat tuning (also in the console: 设置 → 每个群单独调). Unset keys follow [behavior].
 # [chats."qq:group:123456789"]
@@ -92,6 +101,10 @@ friend_requests = "smart"           # accept | smart (known people / with keywor
 group_invites = "owner"
 friend_keywords = []                # words in a request's note that get an automatic yes
 input_status = true                 # show "对方正在输入..." in DMs
+# Share this QQ account with NoneBot / Koishi / AstrBot and their plugins (see docs/plugins.md):
+# bridge_listen = 3010              # they connect to ws://127.0.0.1:3010 (forward WebSocket)
+# bridge_connect = ["ws://127.0.0.1:6199/ws"]   # or she connects to them (reverse WebSocket, AstrBot)
+# bridge_prefixes = ["/", "#"]      # messages starting with these are theirs; she only remembers them
 
 [platforms.bilibili]                # see docs/platforms/bilibili.md
 enabled = false

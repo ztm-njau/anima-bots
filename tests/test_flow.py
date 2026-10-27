@@ -3,7 +3,7 @@
 import random
 import time
 
-from anima.config import BehaviorConfig, BotConfig, ChatOverride
+from anima.config import BehaviorConfig, BotConfig, ChatOverride, load_bot
 from anima.core.debounce import settle_wait, unfinished
 from anima.core.events import Bubble, Chat, Incoming, Segment, Sender
 from anima.core.humanizer import Humanizer
@@ -19,7 +19,7 @@ FISH = Sender("pg-小鱼", "小鱼")
 CAT = Sender("pg-阿猫", "阿猫")
 DOG = Sender("pg-阿狗", "阿狗")
 ALIASES = ["可乐", "claudette"]
-FALSE_FRIENDS = BehaviorConfig().name_false_friends
+FALSE_FRIENDS = load_bot("claudette").config.behavior.name_false_friends
 
 
 def msg(text, sender=FISH, chat=GROUP, **kw):

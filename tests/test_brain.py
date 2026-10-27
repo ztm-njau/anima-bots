@@ -125,7 +125,7 @@ async def test_reflection_saves_facts_affinity_and_treasures(make_brain):
 
 async def test_daily_plan_and_diary(make_brain):
     plan = {"theme": "认星星", "events": [{"time": "10:00", "what": "听公开课"}], "song": "lo-fi",
-            "small_goal": "攒星星币", "bug_moment": "Bug 睡在缓存里"}
+            "small_goal": "攒星星币", "moment": "Bug 睡在缓存里"}
 
     def side(system, prompt, schema):
         return plan if schema else "今天认识了新朋友，很开心。"

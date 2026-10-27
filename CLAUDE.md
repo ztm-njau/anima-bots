@@ -1,7 +1,7 @@
 # Working in this repo
 
-Anima is a Python engine for human-like social bots; each bot is a folder under `bots/`
-(Claudette / 可乐 is the first). It runs on the owner's Mac, not in the cloud.
+Anima is a Python engine for human-like social bots; each persona is a folder under `bots/`
+(可乐 / Claudette, 晚舟 / wanzhou, 小满 / xiaoman; none is special). It runs on the owner's Mac, not in the cloud.
 
 ## Commands
 
@@ -30,6 +30,13 @@ Anima is a Python engine for human-like social bots; each bot is a folder under 
 - Platforms: `adapters/`. Only `send()` is required; capabilities (`typing`, `poke`, `voice`, ...) are optional.
 - Skills: `skills/` with the `@skill` decorator; bot-specific ones in `bots/<name>/skills/*.py`; MCP servers in
   `bots/<name>/mcp.json` register as skills via `plugins.py`.
+- Plugins: `plugin.py` (public API: skills, hooks, commands, timers) + `plugin_host.py` (discover/load/install,
+  `plugins/` bundled, `data/plugins/` installed, enabled per persona in bot.toml `plugins = [...]`). AstrBot plugins run
+  on `compat/astrbot.py`; NoneBot/Koishi share the QQ account through `adapters/onebot_bridge.py`. Market: `market.py`
+  + `market/index.json`. Anima's own MCP server: `mcp_server.py`, mounted at `/mcp` by `web.RootApp`.
+- Personas: `personas.py` (gallery, create/draft/duplicate, packs). `Bot.file()` falls back to `bots/_template/`.
+  `Runtime.switch()` changes persona live; `config.default_bot()` (data/anima.json) replaces any hardcoded bot.
+  Never hardcode a persona's name in engine code; use `brain.cfg.identity` / `brain.names`.
 - Owner/relationships: `core/admin.py` (commands, gate, friend requests). 世界书: `core/lorebook.py` + `core/cards.py`
   (SillyTavern import). 表情包: `core/memes.py`. Recall: `core/recall.py`. Console: `web/console.py` + `static/console.html`.
   OpenAI-compatible endpoint for other frameworks: `web/openai_api.py`.

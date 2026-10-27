@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>可乐 · Anima</title>
+<title>Anima</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23e5383b'/%3E%3Cpath d='M32 15l4.6 10.6 11.4 1-8.7 7.6 2.7 11.3L32 39.6l-10 5.9 2.7-11.3-8.7-7.6 11.4-1z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root {
@@ -35,10 +35,12 @@ body.night #stars { opacity: 1; }
 .chat { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .chat-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
 .avatar { position: relative; width: 46px; height: 46px; flex: none; }
-.avatar svg { width: 100%; height: 100%; filter: drop-shadow(0 6px 10px rgba(229, 56, 59, .35)); }
+.avatar .face { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 19px var(--serif, serif);
+  background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.24), transparent 62%), var(--face, #9a3524); background-size: cover; background-position: center;
+  box-shadow: 0 8px 16px -8px rgba(0, 0, 0, .45), inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .avatar .zzz { position: absolute; right: -10px; top: -12px; font-size: 13px; color: var(--ink3); display: none; animation: float 2.4s infinite; }
 body.asleep .avatar .zzz { display: block; }
-body.asleep .avatar svg { filter: grayscale(.4) brightness(.85); }
+body.asleep .avatar .face { filter: grayscale(.4) brightness(.85); }
 @keyframes float { 0% { transform: translateY(4px); opacity: 0 } 40% { opacity: 1 } 100% { transform: translateY(-8px); opacity: 0 } }
 .wiggle { animation: wiggle .5s 2; }
 @keyframes wiggle { 0%, 100% { transform: rotate(0) } 25% { transform: rotate(-12deg) } 75% { transform: rotate(12deg) } }
@@ -149,15 +151,10 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
   <section class="card chat">
     <header class="chat-head">
       <div class="avatar" id="avatar">
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <defs><radialGradient id="g" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#c96a52"/><stop offset="1" stop-color="#9a3524"/></radialGradient></defs>
-          <circle cx="32" cy="32" r="30" fill="url(#g)"/>
-          <path d="M32 14l4.8 11 11.9 1.1-9 7.9 2.7 11.7L32 39.6l-10.4 6.1 2.7-11.7-9-7.9 11.9-1.1z" fill="#fff"/>
-          <circle cx="48" cy="15" r="3" fill="#f2b544"/>
-        </svg>
+        <div class="face" id="face"></div>
         <span class="zzz">z z</span>
       </div>
-      <div class="who"><b id="herName">可乐</b><small id="status"><span class="dot"></span>连接中…</small></div>
+      <div class="who"><b id="herName"></b><small id="status"><span class="dot"></span>连接中…</small></div>
       <div class="tabs"><button id="tabPrivate" class="on">私聊</button><button id="tabGroup">群聊（模拟）</button></div>
     </header>
     <div class="msgs" id="msgs" data-i18n-skip></div>
@@ -170,7 +167,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
         <span class="preview" id="preview"></span>
       </div>
       <div class="line">
-        <textarea id="input" rows="1" placeholder="跟可乐说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+        <textarea id="input" rows="1" placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
         <button class="btn primary" id="send">发送</button>
       </div>
     </div>
@@ -222,7 +219,7 @@ body.night .badge.warn { color: #ffc56b; background: #3a2a10; border-color: #6a4
   </section>
 </div>
 
-<script src="/static/i18n.js?v=4"></script>
+<script src="/static/i18n.js?v=5"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { ws: null, state: null, chats: {}, mode: "private", msgs: {}, typing: {}, read: {}, image: null, imageName: "", traces: 0, traceList: [] };
@@ -282,6 +279,12 @@ function applyState(st) {
   document.documentElement.classList.toggle("day", !st.night);
   document.body.classList.toggle("asleep", st.life.availability === "asleep");
   $("herName").textContent = st.name;
+  document.title = `${st.name} · Anima`;
+  const face = $("face");
+  face.style.setProperty("--face", st.color || "#9a3524");
+  face.style.backgroundImage = st.avatar ? `url('${st.avatar}')` : "";
+  face.textContent = st.avatar ? "" : [...(st.name || "·")][0];
+  $("input").placeholder = t("跟{name}说点什么…（Enter 发送，Shift+Enter 换行）", { name: st.name });
   $("clock").innerHTML = `${st.time}<small>${esc(t("{date} · 北京时间{part}", { date: dateLabel(st.date), part: tr(st.part) }))}</small>`;
   $("status").innerHTML = `<span class="dot ${st.life.availability}"></span>${t(AV[st.life.availability])} · ${esc(st.life.activity)}`;
   $("activity").textContent = st.life.activity;
@@ -330,7 +333,7 @@ function render() {
       html += `<div class="row me"><div class="bubble">${esc(it.text)}${img}</div></div>`;
       if (lastMine && it.id === lastMine.id && S.read[key] === it.id) html += `<div class="read">${t("已读")}</div>`;
     } else {
-      if (S.mode === "group" && lastSpeaker !== "__her") html += `<div class="speaker left">${esc(S.state?.name || "可乐")}</div>`;
+      if (S.mode === "group" && lastSpeaker !== "__her") html += `<div class="speaker left">${esc(herName())}</div>`;
       lastSpeaker = "__her";
       if (it.voice) {
         const bars = Array.from({ length: Math.min(14, 4 + Math.round(it.voice.length / 2)) }, (_, i) => `<b style="height:${6 + ((i * 7) % 11)}px"></b>`).join("");
@@ -342,7 +345,7 @@ function render() {
       }
     }
   }
-  box.innerHTML = html || `<div class="sys">${S.mode === "group" ? esc(t("这是一个模拟群聊：换个名字发言，看看她什么时候会插话。@{name} 一定会回。", { name: S.state?.name || "可乐" })) : t("打个招呼吧")}</div>`;
+  box.innerHTML = html || `<div class="sys">${S.mode === "group" ? esc(t("这是一个模拟群聊：换个名字发言，看看她什么时候会插话。@{name} 一定会回。", { name: herName() })) : t("打个招呼吧")}</div>`;
   box.querySelectorAll(".voice").forEach((el) => el.onclick = () => play(el));
   renderTyping(); box.scrollTop = box.scrollHeight;
 }

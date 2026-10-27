@@ -1,6 +1,7 @@
 """Her 表情包 collection: real sticker images she sends by mood or meme, and grows by herself.
 
-Two sources: packs you drop into ``bots/<name>/memes/<tag>/`` (the folder name is the tag) and
+Two sources: packs in ``bots/<name>/memes/<tag>/`` and the shared ``bots/_template/memes/`` (the
+folder name is the tag), and
 stickers she "steals" from chats, saved in ``data/<name>/stickers/`` and tagged by a vision model
 the way a person remembers a sticker ("狗头 无语 摸鱼").
 """
@@ -44,14 +45,25 @@ class StickerLibrary:
         self.memory = memory
         self.folder = bot.data_dir / "stickers"
 
+    def _roots(self) -> list[Path]:
+        """Her own packs first, then the shared starter pack in bots/_template/memes."""
+        from anima.config import shared_dir
+
+        roots = [self.bot.dir / "memes"]
+        if self.bot.config.behavior.shared_stickers:
+            roots.append(shared_dir() / "memes")
+        return [r for r in roots if r.is_dir()]
+
     def _bundled(self) -> list[Sticker]:
-        root = self.bot.dir / "memes"
-        out = []
-        for folder in sorted(p for p in root.glob("*") if p.is_dir()):
-            for path in sorted(folder.iterdir()):
-                if path.suffix.lower() in IMAGE_EXT:
-                    stem_tags = [t for t in re.split(r"[\s_,，、-]+", path.stem) if t and not t.isdigit()]
-                    out.append(Sticker(f"b:{folder.name}/{path.name}", path, [folder.name, *stem_tags], source="pack"))
+        out, seen = [], set()
+        for root in self._roots():
+            for folder in sorted(p for p in root.glob("*") if p.is_dir()):
+                for path in sorted(folder.iterdir()):
+                    sid = f"b:{folder.name}/{path.name}"
+                    if path.suffix.lower() in IMAGE_EXT and sid not in seen:
+                        seen.add(sid)
+                        stem_tags = [t for t in re.split(r"[\s_,，、-]+", path.stem) if t and not t.isdigit()]
+                        out.append(Sticker(sid, path, [folder.name, *stem_tags], source="pack"))
         return out
 
     async def all(self) -> list[Sticker]:
@@ -109,8 +121,10 @@ class StickerLibrary:
 
     def path_for(self, sticker_id: str) -> Path | None:
         if sticker_id.startswith("b:"):
-            path = self.bot.dir / "memes" / sticker_id[2:]
-            return path if path.exists() and path.resolve().is_relative_to((self.bot.dir / "memes").resolve()) else None
+            for root in self._roots():
+                path = root / sticker_id[2:]
+                if path.exists() and path.resolve().is_relative_to(root.resolve()):
+                    return path
         return None
 
 

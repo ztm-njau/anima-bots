@@ -1,0 +1,11 @@
+id = "hitokoto"
+name = "一言"
+version = "1.0.0"
+description = "来一句动画、文学或诗词里的句子（hitokoto.cn），她会在合适的时候用，也可以 /一言"
+author = "Anima"
+license = "MIT"
+homepage = "https://developer.hitokoto.cn/"
+permissions = ["network"]
+
+[config]
+categories = { type = "string", default = "a,b,d,i,k", label = "句子类型（a 动画 b 漫画 d 文学 i 诗词 k 哲学，逗号分隔）" }

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 PING_SYSTEM = "这是一次连通性测试。"
 PING_PROMPT = "只回复两个字：在呢"
-PREVIEW_MESSAGE = "嗨可乐！第一次见面，跟我打个招呼、介绍一下自己吧"
+PREVIEW_MESSAGE = "嗨{name}！第一次见面，跟我打个招呼、介绍一下自己吧"
 
 
 def provider_router(runtime: Runtime) -> APIRouter:
@@ -107,12 +107,12 @@ def provider_router(runtime: Runtime) -> APIRouter:
 
         started = time.perf_counter()
         try:
-            result = await provider.converse(brain.prompt.system(), [Turn("user", PREVIEW_MESSAGE)],
+            result = await provider.converse(brain.prompt.system(), [Turn("user", PREVIEW_MESSAGE.format(name=brain.cfg.identity.display_name))],
                                              brain.prompt.dynamic(scene), [], no_tools)
         except LLMError as exc:
             raise HTTPException(502, str(exc)) from exc
         brain.account(result)
-        reply = parse_reply(result.text, brain.stickers, brain.cfg.behavior.max_bubbles)
+        reply = parse_reply(result.text, brain.stickers, brain.cfg.behavior.max_bubbles, brain.names)
         bubbles = []
         for bubble in brain.humanizer.shape(reply.bubbles):
             text = "".join(s.value if s.type == "text" else brain.stickers.emoji(s.value) for s in bubble.segments)

@@ -67,7 +67,7 @@ def _card_png(card: dict) -> bytes:
 
 def test_character_card_becomes_a_bot(tmp_path, monkeypatch):
     shutil.copytree("bots/_template", tmp_path / "_template")
-    monkeypatch.setattr("anima.core.cards.BOTS_DIR", tmp_path)
+    monkeypatch.setattr("anima.config.BOTS_DIR", tmp_path)
     card = {"spec": "chara_card_v2", "data": {
         "name": "露娜", "description": "{{char}}是一只会说话的月光狐狸。", "personality": "温柔，爱吐槽",
         "first_mes": "你好呀，{{user}}～", "mes_example": "<START>\n{{user}}: 你是谁\n{{char}}: 月光的狐狸呀",

@@ -1,13 +1,13 @@
 [project]
 name = "anima-bots"
 version = "0.1.0"
-description = "Anima: a soul engine for human-like social bots. Home of Claudette (可乐)."
+description = "Anima: an engine for human-like social bots, with swappable personas and plugins from the MCP, AstrBot and OneBot ecosystems."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "ztm-njau" }]
-keywords = ["chatbot", "persona", "llm", "qq-bot", "onebot", "napcat", "bilibili", "wechat", "deepseek", "claude", "mcp", "sillytavern"]
+keywords = ["chatbot", "persona", "llm", "qq-bot", "onebot", "napcat", "bilibili", "wechat", "deepseek", "claude", "mcp", "sillytavern", "astrbot", "nonebot", "plugins"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3.12",

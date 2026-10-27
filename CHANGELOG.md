@@ -4,7 +4,22 @@
 
 ## [Unreleased]
 
+### Added · 新增
+- 人设成为一等公民：后台「人设」页可以浏览、试聊、编辑、复制、导出导入人设包、一键切换（不用重启）；新建人设可以填表、
+  一句话让模型起草或导入角色卡。新增两个原创人设：晚舟（深夜电台主播）和小满（山里茶铺姑娘）。
+  Personas are first-class: a gallery with try, edit, duplicate, packs and live switching; create from a form,
+  a one-line idea or a character card. Two new original personas, 晚舟 and 小满.
+- 插件系统：`plugin.toml` + `anima.plugin` 接口（技能、消息/场景/回复钩子、命令、定时任务、设置项），自带一言、关键词回复、倒数日。
+  A plugin system with tools, hooks, commands, timers and settings; three bundled plugins.
+- 生态兼容：AstrBot 插件直接加载（兼容层），OneBot 桥接让 NoneBot / Koishi / AstrBot 共用 QQ 号，MCP 官方注册表搜索。
+  AstrBot plugins on a compatibility layer, a OneBot bridge for NoneBot / Koishi / AstrBot, MCP Registry search.
+- 插件市场：Anima 插件、MCP、AstrBot、NoneBot、人设包五个货架。A market with five shelves.
+- Anima 自身作为 MCP 服务器（`/mcp`）。Anima as an MCP server at `/mcp`.
+- 命令行 `anima persona …`、`anima plugin …`。CLI groups for personas and plugins.
+
 ### Changed · 改进
+- 引擎不再写死任何人设：默认人设记在 `data/anima.json`，日程和日记提示词、表情包起手包、作息与过滤词都改为人设自带或共享默认。
+  The engine no longer assumes a persona; schedules, diary prompts, stickers and guard files are per persona or shared.
 - 防抖：根据最后一句有没有说完、对方的打字节奏来决定等多久；群里只有对她说话的人会让她多等。
   Debounce reads whether the last line is finished and follows the sender's rhythm; in groups only
   people talking to her extend the wait.

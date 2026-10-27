@@ -75,7 +75,7 @@ async def qr_login(secrets_dir: Path) -> Path:
     qr = login_v2.QrCodeLogin()
     await qr.generate_qrcode()
     print(qr.get_qrcode_terminal())
-    print("用 B 站 App 扫描上面的二维码（建议用给可乐准备的小号）……")
+    print("用 B 站 App 扫描上面的二维码（建议用给她单独准备的小号）……")
     last = None
     while not qr.has_done():
         state = await qr.check_state()

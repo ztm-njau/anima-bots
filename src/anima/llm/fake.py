@@ -14,7 +14,7 @@ from anima.llm.base import LLMProvider, LLMResult, ToolExecutor, ToolSpec, Turn,
 Responder = Callable[[str, list[Turn], str], str | list[Any]]
 
 _DEMO_LINES = [
-    ["我还没睡醒……其实是还没接上大脑", "在 .env 里放一个 ANTHROPIC_API_KEY，我就能好好跟你聊了[sticker:cute]"],
+    ["我还没睡醒……其实是还没接上大脑", "去「模型」页接一个模型（DeepSeek 就行），我就能好好跟你聊了[sticker:cute]"],
     ["收到收到", "不过我现在只会说预设好的台词，像个复读机[sticker:facepalm]", "给我一把 API key 吧"],
     ["嘿嘿，这里是演示模式", "界面、心情、作息这些你都可以先玩玩看[sticker:doge]"],
 ]

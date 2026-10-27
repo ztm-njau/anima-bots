@@ -2,7 +2,7 @@
 
 ![The 模型提供商 (model providers) panel](providers-panel.en.jpg)
 
-Claudette's brain can run on any of 18 providers, switched live from the **模型提供商** panel
+Her brain (whichever persona is active) can run on any of 18 providers, switched live from the **模型提供商** panel
 (`uv run anima play`, then http://127.0.0.1:8765/providers) or from the terminal. Her default is
 **DeepSeek** (`deepseek-flash`, DeepSeek V4.1 Flash).
 
@@ -45,7 +45,7 @@ the same computer (Claude Code, Codex, AstrBot…) can use the same gateway with
 [magpie](https://github.com/yetone/magpie) (yetone, MIT) is a menu-bar app with one local gateway
 (`127.0.0.1:3425`) for every agent you use: you add DeepSeek, Kimi, your Claude or ChatGPT plan,
 local models… once, and magpie handles failover between accounts, routing groups, privacy masking
-and usage. If you already use it, Claudette can just plug in:
+and usage. If you already use it, Anima can just plug in:
 
 - With magpie running, the panel shows **本机 magpie 网关** under 在这台电脑上发现. Import it (no key
   needed from this computer), then press **一键用它** on the DeepSeek suggestion, or pick any

@@ -9,13 +9,12 @@ from __future__ import annotations
 import base64
 import json
 import re
-import shutil
 import struct
 import zlib
 from pathlib import Path
 from typing import Any
 
-from anima.config import BOTS_DIR
+from anima import config
 from anima.core.lorebook import Lorebook, from_sillytavern
 
 
@@ -98,14 +97,17 @@ def examples_from_card(f: dict[str, Any]) -> str:
 
 
 def create_bot_from_card(data: bytes, folder_name: str | None = None) -> Path:
+    from anima.personas import _write_toml, make_key
+
     f = card_fields(read_card(data))
-    slug = folder_name or re.sub(r"[^a-z0-9_-]+", "-", f["name"].lower()).strip("-") or "card-bot"
-    target = BOTS_DIR / slug
+    slug = folder_name or make_key(f["name"])
+    target = config.BOTS_DIR / slug
     if target.exists():
         raise FileExistsError(f"bots/{slug} 已经存在")
-    shutil.copytree(BOTS_DIR / "_template", target)
-    toml = (target / "bot.toml").read_text(encoding="utf-8").replace("{{name}}", f["name"])
-    (target / "bot.toml").write_text(toml, encoding="utf-8")
+    target.mkdir(parents=True)
+    tagline = re.sub(r"\s+", " ", _fill(f["creator_notes"] or f["description"], f["name"]))[:60]
+    _write_toml(target, {"name": f["name"], "display_name": f["name"], "aliases": [f["name"]], "tagline": tagline,
+                         "tags": [str(t) for t in f["tags"]][:6], "author": "SillyTavern card"})
     (target / "persona.md").write_text(persona_from_card(f), encoding="utf-8")
     (target / "examples.md").write_text(examples_from_card(f), encoding="utf-8")
     if f["character_book"]:

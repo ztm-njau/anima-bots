@@ -1,0 +1,10 @@
+id = "keyword-reply"
+name = "关键词回复"
+version = "1.0.0"
+description = "消息里出现关键词时，原样回一句固定的话（群规、链接、暗号），不经过模型、不花钱"
+author = "Anima"
+license = "MIT"
+
+[config]
+rules = { type = "text", default = "群规 => 友善聊天，不刷屏，不发广告\n官网 => https://github.com/ztm-njau/anima-bots", label = "一行一条：关键词 => 回复" }
+exact = { type = "boolean", default = false, label = "整条消息等于关键词才回（关掉则包含就回）" }

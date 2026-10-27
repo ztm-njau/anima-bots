@@ -17,7 +17,7 @@ BAD = [
     "熬夜", "冲动消费", "和人抬杠", "立flag", "空腹喝咖啡", "翻旧账", "点外卖超过两份",
     "看恐怖片", "通宵打游戏", "说“我再睡五分钟”", "相信“这次肯定不堵车”",
 ]
-COLORS = ["可乐红", "星空蓝", "薄荷绿", "奶油白", "落日橙", "樱花粉", "雾霾紫", "柠檬黄"]
+COLORS = ["珊瑚红", "星空蓝", "薄荷绿", "奶油白", "落日橙", "樱花粉", "雾霾紫", "柠檬黄"]
 
 MAJOR_ARCANA = [
     ("愚者", "新的开始、冒险、天真", "鲁莽、犹豫不决"),
@@ -128,7 +128,7 @@ async def choose(ctx: SkillContext, args: dict) -> dict:
     return {"picked": random.choice(options), "from": options}
 
 
-@skill("draw_lot", "抽一支“可乐签”，带一句签文。")
+@skill("draw_lot", "抽一支签，带一句签文。")
 async def draw_lot(ctx: SkillContext, args: dict) -> dict:
     level, verse = random.choice(LOTS)
     return {"lot": level, "verse": verse}

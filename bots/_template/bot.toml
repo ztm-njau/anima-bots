@@ -3,6 +3,7 @@
 
 skills = ["*"]                      # every built-in skill; e.g. ["*", "-weather"] to drop one
 owners = []                         # who may manage her with / commands, e.g. ["qq:123456"]
+plugins = []                        # Anima / AstrBot plugins she uses, by id (console: 扩展), e.g. ["hitokoto"]
 
 [identity]
 name = "{{name}}"
@@ -92,6 +93,10 @@ friend_requests = "smart"           # accept | smart (known people / with keywor
 group_invites = "owner"
 friend_keywords = []                # words in a request's note that get an automatic yes
 input_status = true                 # show "对方正在输入..." in DMs
+# Share this QQ account with NoneBot / Koishi / AstrBot and their plugins (see docs/plugins.md):
+# bridge_listen = 3010              # they connect to ws://127.0.0.1:3010 (forward WebSocket)
+# bridge_connect = ["ws://127.0.0.1:6199/ws"]   # or she connects to them (reverse WebSocket, AstrBot)
+# bridge_prefixes = ["/", "#"]      # messages starting with these are theirs; she only remembers them
 
 [platforms.bilibili]                # see docs/platforms/bilibili.md
 enabled = false

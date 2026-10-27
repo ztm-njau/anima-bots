@@ -18,7 +18,7 @@ from anima.core.events import Bubble, Chat, Image, Incoming, Sender
 from anima.core.voice import synthesize
 
 PRIVATE = Chat("playground", "private", "you")
-GROUP = Chat("playground", "group", "lab", "可乐的测试群")
+GROUP = Chat("playground", "group", "lab", "测试群")
 
 
 class PlaygroundAdapter(Adapter):

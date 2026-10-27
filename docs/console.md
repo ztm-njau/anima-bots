@@ -6,12 +6,13 @@ here is also in files you can edit by hand; the console just saves you the trip.
 | Page | What it does |
 | --- | --- |
 | 概览 | Model status, people, pending requests, 世界书, 表情包, plugins at a glance |
+| 人设 | The persona gallery: switch live, try one on the current model, edit persona / examples / names, duplicate, export a pack, retire; create from a form, a one-line idea drafted by the model, a SillyTavern card or a pack ([personas.md](personas.md)) |
 | 用户与画像 | Everyone she knows: profile (用户画像), nickname, affinity, what she remembers (add / delete), block, let her talk to someone again, forget a person entirely |
 | 好友请求 | Friend requests and group invites waiting for you, and what was decided |
 | 世界书 | Keyword-triggered lore, editable; import SillyTavern world books or a character card's book; test which entries a sentence triggers; turn a character card into a new bot |
 | 表情包 | Her sticker images: starter pack, ones she collected, uploads; edit tags |
-| 插件 | MCP servers as her tools: recommended ones, any server from GitHub (paste its config), status and tool list |
-| 设置 | Owners, how chatty she is, interests, real-time pacing, image memory, recall, diary, QQ groups and request rules, other platforms, and her persona / examples |
+| 扩展 | Installed plugins (on/off, settings, dependencies, uninstall), the market (Anima, MCP + the official registry, AstrBot, NoneBot, persona packs), MCP servers, and interop: the OneBot bridge, `/mcp`, `/v1` ([plugins.md](plugins.md)) |
+| 设置 | Owners, how chatty she is, interests, rhythm (debounce, bubbles, group manners), per-group tuning, image memory, recall, diary, QQ groups and request rules, other platforms, and the active persona's text |
 
 ## Owner commands (in any chat with her)
 

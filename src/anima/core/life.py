@@ -37,33 +37,37 @@ PLAN_SCHEMA = {
         },
         "song": {"type": "string"},
         "small_goal": {"type": "string"},
-        "bug_moment": {"type": "string"},
+        "moment": {"type": "string"},
     },
-    "required": ["theme", "events", "song", "small_goal", "bug_moment"],
+    "required": ["theme", "events", "song", "small_goal", "moment"],
     "additionalProperties": False,
 }
 
+# Used when no model is reachable; a persona can bring its own in life.toml ([[plan.fallback]]).
 FALLBACK_PLANS = [
-    {"theme": "想把猎户座的每颗星都认一遍", "events": [{"time": "10:00", "what": "听天体物理公开课"},
-     {"time": "15:00", "what": "整理一期冷知识"}, {"time": "21:00", "what": "看别人拍的星空照片"}],
-     "song": "一首下雨天的 lo-fi", "small_goal": "攒 3 枚星星币", "bug_moment": "Bug 又睡在缓存里了"},
-    {"theme": "研究人类为什么爱吃火锅", "events": [{"time": "12:00", "what": "到处看别人午饭吃什么"},
-     {"time": "16:00", "what": "读一本讲味觉的书"}, {"time": "20:30", "what": "看一部老电影"}],
-     "song": "城市流行老歌", "small_goal": "学会一个新梗", "bug_moment": "Bug 追着一个光标跑了一下午"},
+    {"theme": "把一件拖了很久的小事做完", "events": [{"time": "10:00", "what": "收拾一下自己的小角落"},
+     {"time": "15:00", "what": "读几页一直想读的书"}, {"time": "21:00", "what": "听几首老歌"}],
+     "song": "一首适合傍晚的老歌", "small_goal": "今天早点睡", "moment": "窗外的光正好落在桌上"},
+    {"theme": "学一点新东西", "events": [{"time": "11:00", "what": "看一个讲冷知识的视频"},
+     {"time": "16:00", "what": "整理最近收藏的好句子"}, {"time": "20:30", "what": "看一部老电影"}],
+     "song": "轻快的城市流行", "small_goal": "记住一个新词", "moment": "突然想起一个很久没联系的朋友"},
 ]
 
 PLAN_SYSTEM = """\
-你在为一个虚拟角色安排她今天的生活。她是住在网络里的 AI 女孩，所有事情都发生在网上或她的小屋里（比如蹭公开课、看电影、整理冷知识、云吃饭、陪电子猫 Bug 玩），不要编造线下经历。
-根据她的人设和昨天的日记，给今天一个小主题、3~4 件小事（带时间，符合她的作息）、一首今日歌曲（可以只描述风格）、一个小目标、一个电子猫 Bug 的小插曲。要具体、有生活感、有点可爱，延续之前的故事线。
+你在为一个虚拟角色安排她今天的生活。{world}
+根据她的人设和昨天的日记，给今天一个小主题、3~4 件小事（带时间，符合她的作息）、一首今日歌曲（可以只描述风格）、一个小目标，以及{moment}。要具体、有生活感，延续之前的故事线。
 
 她的人设摘要：
 {persona}"""
 
 DIARY_SYSTEM = """\
-你是「{name}」，一个住在网络里的 AI 女孩。现在是晚上，写今天的日记。
+你是「{name}」。{world}现在是晚上，写今天的日记。
 要求：用你平时说话的语气，150~250 字，像真的日记，有具体的小事和感受。
 可以写今天和大家聊天的感受，但不要写出任何人的名字、账号或私聊内容（日记可能会公开）。
 不要用 markdown，不要标题，直接写正文。"""
+
+DEFAULT_WORLD = "她是 AI 驱动的虚拟角色，按她的人设过日子，不要编造她做不到的线下经历。"
+DEFAULT_MOMENT = "一个让她心情变好的小瞬间"
 
 
 def chat_from_key(key: str, title: str = "") -> Chat:
@@ -73,8 +77,9 @@ def chat_from_key(key: str, title: str = "") -> Chat:
 
 def plan_text(plan: dict) -> str:
     events = "；".join(f"{e['time']} {e['what']}" for e in plan.get("events", []))
+    moment = plan.get("moment") or plan.get("bug_moment") or ""  # bug_moment: plans saved before 0.2
     return (f"主题：{plan.get('theme', '')}。{events}。今日歌曲：{plan.get('song', '')}。"
-            f"小目标：{plan.get('small_goal', '')}。Bug：{plan.get('bug_moment', '')}")
+            f"小目标：{plan.get('small_goal', '')}。小插曲：{moment}")
 
 
 class Life:
@@ -83,7 +88,12 @@ class Life:
     def __init__(self, brain: Brain):
         self.brain = brain
         self.cfg = brain.cfg.life
+        self.plan_cfg = brain.bot.read_toml("life.toml").get("plan", {})  # her world, her daily little moment
         self._was_asleep: bool | None = None
+
+    @property
+    def world(self) -> str:
+        return self.plan_cfg.get("world") or DEFAULT_WORLD
 
     async def run(self) -> None:
         while True:
@@ -144,14 +154,16 @@ class Life:
         prompt = f"今天是 {brain.clock.describe()}。\n昨天的日记：{diary}"
         plan: dict | None = None
         try:
-            result = await brain.llm.complete(PLAN_SYSTEM.format(persona=persona), prompt, schema=PLAN_SCHEMA)
+            system = PLAN_SYSTEM.format(world=self.world, moment=self.plan_cfg.get("moment") or DEFAULT_MOMENT,
+                                        persona=persona)
+            result = await brain.llm.complete(system, prompt, schema=PLAN_SCHEMA)
             brain.account(result)
             plan = json.loads(result.text)
             if not plan.get("events"):
                 plan = None
         except (LLMError, json.JSONDecodeError) as exc:
             logger.warning("Daily plan generation failed: {}", exc)
-        plan = plan or self._day_rng("plan", today).choice(FALLBACK_PLANS)
+        plan = plan or self._day_rng("plan", today).choice(self.plan_cfg.get("fallback") or FALLBACK_PLANS)
         text = plan_text(plan)
         await brain.memory.journal_put(today, "plan", text)
         brain.trace.emit("plan", date=today, plan=text)
@@ -167,7 +179,8 @@ class Life:
         prompt = (f"日期：{brain.clock.describe()}\n今天的计划：{plan}\n心情：{brain.mood.describe(0.5)}\n"
                   f"今天聊过 {len({m.sender_key for m in messages if not m.is_self})} 个人，节选：\n{transcript}")
         try:
-            result = await brain.llm.complete(DIARY_SYSTEM.format(name=brain.cfg.identity.display_name), prompt)
+            result = await brain.llm.complete(DIARY_SYSTEM.format(name=brain.cfg.identity.display_name, world=self.world),
+                                              prompt)
             brain.account(result)
         except LLMError as exc:
             logger.warning("Diary failed: {}", exc)

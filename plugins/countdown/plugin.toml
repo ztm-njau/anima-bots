@@ -1,0 +1,6 @@
+id = "countdown"
+name = "倒数日"
+version = "1.0.0"
+description = "记下重要的日子（考试、生日、旅行），她会在聊天里记得还有几天，也会在当天提一句"
+author = "Anima"
+license = "MIT"

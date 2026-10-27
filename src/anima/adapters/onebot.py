@@ -54,6 +54,10 @@ class OneBotConfig(BaseModel):
     friend_keywords: list[str] = []
     input_status: bool = True
     download_images: bool = True
+    bridge_listen: int = 0  # let other OneBot frameworks connect here (ws://127.0.0.1:<port>)
+    bridge_connect: list[str] = []  # or connect out to frameworks that run a server (AstrBot: ws://127.0.0.1:6199/ws)
+    bridge_token_env: str = ""  # access token for the bridge, read from .env
+    bridge_prefixes: list[str] = ["/", "#"]  # messages starting with these are left to those frameworks
 
 
 class OneBotAdapter(Adapter):
@@ -74,16 +78,22 @@ class OneBotAdapter(Adapter):
         self._sticker = False
         self._task: asyncio.Task | None = None
         self.connected = asyncio.Event()
+        from anima.adapters.onebot_bridge import OneBotBridge
+
+        self.bridge = OneBotBridge(self)
 
     # ------------------------------------------------------------ connection
 
     async def start(self, brain) -> None:
         await super().start(brain)
         self._task = asyncio.create_task(self._run())
+        if self.bridge.active:
+            await self.bridge.start()
 
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        await self.bridge.stop()
         if self.ws:
             await self.ws.close()
 
@@ -146,6 +156,23 @@ class OneBotAdapter(Adapter):
             raise RuntimeError(f"{action} failed: {resp.get('message') or resp.get('wording') or resp}")
         return resp.get("data") or {}
 
+    async def call_raw(self, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        """A OneBot call passed through for a bridged framework: the full response, never an exception."""
+        if not self.ws:
+            return {"status": "failed", "retcode": 1400, "data": None, "message": "NapCat is not connected"}
+        echo = uuid.uuid4().hex
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._pending[echo] = future
+        try:
+            await self.ws.send(json.dumps({"action": action, "params": params, "echo": echo}, ensure_ascii=False))
+            resp = dict(await asyncio.wait_for(future, timeout=30))
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "failed", "retcode": 1500, "data": None, "message": str(exc)}
+        finally:
+            self._pending.pop(echo, None)
+        resp.pop("echo", None)
+        return resp
+
     async def _soft(self, action: str, **params: Any) -> None:
         """Extension calls: nice to have, never worth an error."""
         with contextlib.suppress(Exception):
@@ -160,6 +187,8 @@ class OneBotAdapter(Adapter):
                 self._pending[echo].set_result(data)
             return
         post_type = data.get("post_type")
+        if self.bridge.peers:
+            await self.bridge.forward(data)
         try:
             if post_type == "message":
                 await self._on_message(data)
@@ -202,6 +231,9 @@ class OneBotAdapter(Adapter):
         if not text and not images:
             return
         ats, sticker = self._ats, self._sticker
+        bridged = bool(self.bridge.peers) and text.lstrip().startswith(tuple(self.cfg.bridge_prefixes))
+        if bridged:
+            listen_only = True  # a command for the bridged frameworks; she remembers it but doesn't answer
         reply_to_me = bool(reply_to and reply_to in self._sent_ids)
         if reply_to and not reply_to_me and self.brain is not None:  # her message from before a restart
             reply_to_me = await self.brain.memory.is_own_message(chat.key, reply_to)
@@ -216,7 +248,7 @@ class OneBotAdapter(Adapter):
             mentions_me=mentions_me,
             reply_to_me=reply_to_me,
             images=images,
-            meta={"listen_only": listen_only, "at": ats, "sticker": sticker,
+            meta={"listen_only": listen_only, "bridged": bridged, "at": ats, "sticker": sticker,
                   "reply_to_other": bool(reply_to and not reply_to_me)},
         )
         assert self.brain is not None

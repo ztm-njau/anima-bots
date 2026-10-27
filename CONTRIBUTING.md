@@ -23,10 +23,13 @@ See `CLAUDE.md` and `docs/architecture.md`. The usual places:
 
 | 想做的事 · You want to… | 去这里 · Go to |
 | --- | --- |
-| 新的技能（工具）· a skill | `src/anima/skills/`（`@skill` 装饰器）, or `bots/<name>/skills/*.py` |
+| 新的内置技能 · a built-in skill | `src/anima/skills/`（`@skill` 装饰器）；可选功能更适合做成插件 |
 | 新的平台 · a platform | `src/anima/adapters/`（只需实现 `send()`）, register in `runtime.py` |
 | 新的模型提供商预设 · a provider preset | `src/anima/llm/catalog.py` |
-| 新的 bot / 人设 · a bot or persona | `uv run anima new <name>`, then edit `bots/<name>/` |
+| 新的人设 · a persona | 后台「人设」或 `uv run anima new <name>`，见 `docs/personas.md` |
+| 插件 · a plugin | `plugins/<id>/plugin.toml` + `main.py`（`anima.plugin`），见 `docs/plugins.md` |
+| 插件市场条目 · a market entry | `market/index.json` |
+| 兼容层 · compatibility layers | `src/anima/compat/astrbot.py`, `src/anima/adapters/onebot_bridge.py` |
 | 网页 · web UI | `src/anima/web/static/`（中文为源文本，英文写在 `i18n.js` 的 `EN` 里） |
 
 ## 规矩 · House rules

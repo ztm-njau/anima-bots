@@ -73,7 +73,7 @@ async def interactive_login(data_dir: Path, wait_seconds: float = 300) -> bool:
         ctx = await p.chromium.launch_persistent_context(str(profile_dir(data_dir)), channel="chrome", headless=False)
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         await page.goto("https://www.douyin.com/")
-        print("在打开的 Chrome 窗口里扫码登录抖音（建议用给可乐准备的账号），登录后会自动保存。")
+        print("在打开的 Chrome 窗口里扫码登录抖音（建议用给她单独准备的账号），登录后会自动保存。")
         deadline = time.time() + wait_seconds
         while time.time() < deadline:
             cookies = {c["name"] for c in await ctx.cookies("https://www.douyin.com")}
