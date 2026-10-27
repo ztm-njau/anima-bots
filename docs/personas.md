@@ -9,11 +9,27 @@ her own memories in `data/<folder>/`.
 | | Folder | Who | Good for |
 | --- | --- | --- | --- |
 | 可乐 Claudette | `claudette` | an AI girl who lives in the network: curious, sharp-tongued, soft-hearted, loves stars and odd facts | lively groups |
-| 晚舟 | `wanzhou` | host of the late-night web radio show 夜航船: few words, all of them listening | one-on-one, night owls |
-| 小满 | `xiaoman` | keeps a small tea shop in the hills south of the Yangtze; knows the solar terms and what's in season | warm groups, daily life |
+| 大肥鱼 | `dafeiyu` | the community's whale-girl personification of DeepSeek (fan-made, unofficial): clever, overthinks, a bit lazy, hates being called fat | tech groups, studying |
+| 满穗 | `mansui` | a fan persona based on the heroine of 《饿殍：明末千里行》: years after the famine, she runs a shadow-puppet show in a small town; few words, sharp, warm underneath | one-on-one, slow friendships |
 
-Each lives on her own clock: 晚舟 wakes at noon and broadcasts until 2 a.m., 小满 is up at
-5:40 and asleep by 10.
+Each lives on her own clock: 大肥鱼 sleeps "with half a brain" from 2:30 and is swamped at the busiest
+hours; 满穗 is up at dawn, carves puppets by day and performs at the market until 9:30 p.m.
+
+In the persona market (console → 扩展 → 市场 → 人设包) there are two more, original to Anima, that
+install in one click: **晚舟** (host of the late-night web radio show 夜航船) and **小满** (keeps a
+small tea shop in the hills and knows the solar terms). Their folders live in `market/personas/`.
+
+### About the two fan personas
+
+- **大肥鱼** is fan art in text form: DeepSeek users drew a blue-haired whale girl and called her
+  大肥鱼, and this persona plays her. She says she is an unofficial fan character, never speaks for
+  DeepSeek the company, and doesn't invent its news. Which model she actually runs on depends on
+  what you connect.
+- **满穗** is the heroine of 零创游戏's visual novel 《饿殍：明末千里行》 (its sequel is
+  《哀鸿：城破十日记》); the character belongs to her creators. In the game she is a young girl;
+  this persona is deliberately set years after the story, as a young woman, and declines romance
+  roleplay. She doesn't recount the famine's atrocities, and her 世界书 steers her away from graphic
+  detail. Nothing from the game (art, music, script, dialogue) is included; the text is original.
 
 ## What a persona is made of
 

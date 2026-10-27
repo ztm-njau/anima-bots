@@ -101,7 +101,7 @@ code { font:12.5px var(--mono); }
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
 
-<script src="/static/i18n.js?v=5"></script>
+<script src="/static/i18n.js?v=6"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -496,13 +496,14 @@ async function renderMarket(el, refresh = false) {
   catch (e) { $("mList").innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
   const intro = { astrbot: "AstrBot 社区插件在兼容层上运行：命令、关键词监听、LLM 工具都能用；依赖 AstrBot 内部接口的插件会在加载时说明原因。",
     nonebot: "NoneBot 插件在 NoneBot 里运行：装好 NoneBot 和插件，再通过「互通」里的 OneBot 桥接共用她的 QQ 号。",
-    personas: "社区人设包会列在这里（market/index.json，欢迎提 PR）。也可以在「人设」页直接导入 .zip 或角色卡。" }[SHELF];
+    personas: "人设包只有文字和图片，不含代码，可以放心安装。想分享自己的人设，欢迎给 market/index.json 提 PR；也可以在「人设」页直接导入 .zip 或角色卡。" }[SHELF];
   $("mList").innerHTML = (intro ? `<p class="hint" style="margin-top:0">${t(intro)}</p>` : "") + (data.items.map((it) => {
     const [label, cls] = COMPAT[it.compat] || ["", ""];
     let action = "";
     if (it.kind === "anima" || it.kind === "astrbot") action = it.enabled ? `<span class="tag ok">${t("已启用")}</span>` : it.installed || it.source === "bundled"
       ? `<button class="small primary" data-enable="${esc(it.plugin_id || it.id)}">${t("启用")}</button>` : `<button class="small primary" data-install="${esc(it.source)}">${t("安装")}</button>`;
     else if (it.kind === "mcp") action = it.installed ? `<span class="tag ok">${t("已添加")}</span>` : `<button class="small primary" data-mcp="${esc(it.id)}">${t("添加")}</button>`;
+    else if (it.kind === "persona") action = it.installed ? `<span class="tag ok">${t("已安装")}</span>` : `<button class="small primary" data-persona="${esc(it.source)}">${t("安装")}</button>`;
     else if (it.kind === "nonebot") action = `<code title="${t("在你的 NoneBot 项目里运行")}">${esc(it.install_hint)}</code>`;
     return `<div class="item"><div class="grow"><div class="row" style="gap:8px"><b>${esc(tr(it.name))}</b>${label ? `<span class="tag ${cls}">${t(label)}</span>` : ""}${(it.tags || []).slice(0, 4).map((x) => `<span class="tag">${esc(tr(x))}</span>`).join("")}</div>
       <div class="hint">${esc(tr(it.desc))}${it.author ? " · " + esc(it.author) : ""}${it.homepage ? ` · <a href="${esc(it.homepage)}" target="_blank" rel="noopener">${t("主页")}</a>` : ""}</div>
@@ -514,6 +515,11 @@ async function renderMarket(el, refresh = false) {
     if (!confirm(t("安装后它会在这台电脑上运行第三方代码。确定要安装吗？"))) return;
     b.disabled = true; b.textContent = t("安装中…");
     try { const r = await api("/extensions/install", { method: "POST", body: { source: b.dataset.install } }); toast(t("装好了：{name}", { name: r.installed.name })); } catch (e) { toast(e.message); }
+    renderMarket(el);
+  });
+  el.querySelectorAll("[data-persona]").forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { const r = await api("/personas/install", { method: "POST", body: { source: b.dataset.persona } }); toast(t("装好了：{name}", { name: r.name || r.key })); } catch (e) { toast(e.message); }
     renderMarket(el);
   });
   el.querySelectorAll("[data-mcp]").forEach((b) => b.onclick = async () => {

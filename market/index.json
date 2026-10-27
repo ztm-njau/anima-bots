@@ -3,25 +3,248 @@
   "version": 1,
   "about": "Anima's own market index. Add a plugin, MCP server or persona pack with a pull request. Every entry needs a public source; installs run on the owner's computer, so describe what it does honestly.",
   "plugins": [
-    {"id": "hitokoto", "name": "一言", "desc": "动画、文学、诗词里的一句话；她会在合适的时候引用，也能 /一言", "author": "Anima", "source": "bundled", "tags": ["趣味", "网络"]},
-    {"id": "keyword-reply", "name": "关键词回复", "desc": "群规、链接、暗号这类固定回答，不经过模型、不花钱", "author": "Anima", "source": "bundled", "tags": ["群管"]},
-    {"id": "countdown", "name": "倒数日", "desc": "记下考试、生日、旅行，她会记得还剩几天，当天提一句", "author": "Anima", "source": "bundled", "tags": ["生活"]}
+    {
+      "id": "hitokoto",
+      "name": "一言",
+      "desc": "动画、文学、诗词里的一句话；她会在合适的时候引用，也能 /一言",
+      "author": "Anima",
+      "source": "bundled",
+      "tags": [
+        "趣味",
+        "网络"
+      ]
+    },
+    {
+      "id": "keyword-reply",
+      "name": "关键词回复",
+      "desc": "群规、链接、暗号这类固定回答，不经过模型、不花钱",
+      "author": "Anima",
+      "source": "bundled",
+      "tags": [
+        "群管"
+      ]
+    },
+    {
+      "id": "countdown",
+      "name": "倒数日",
+      "desc": "记下考试、生日、旅行，她会记得还剩几天，当天提一句",
+      "author": "Anima",
+      "source": "bundled",
+      "tags": [
+        "生活"
+      ]
+    }
   ],
   "mcp": [
-    {"id": "time", "name": "时间与时区", "desc": "查任意城市现在几点、换算时区", "author": "Model Context Protocol", "config": {"command": "uvx", "args": ["mcp-server-time", "--local-timezone=Asia/Shanghai"]}, "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/time", "tags": ["工具"]},
-    {"id": "fetch", "name": "读网页", "desc": "别人发来链接时，打开网页看看讲了什么", "author": "Model Context Protocol", "config": {"command": "uvx", "args": ["mcp-server-fetch"]}, "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch", "tags": ["网络"]},
-    {"id": "memory", "name": "知识图谱记忆", "desc": "把人、事、关系存成知识图谱，适合需要长期记细节的人设", "author": "Model Context Protocol", "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"]}, "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory", "tags": ["记忆"]},
-    {"id": "howtocook", "name": "程序员做饭指南", "desc": "菜谱、今天吃什么", "author": "worryzyy", "config": {"command": "npx", "args": ["-y", "howtocook-mcp"]}, "homepage": "https://github.com/worryzyy/HowToCook-mcp", "tags": ["生活"]},
-    {"id": "bing-cn", "name": "必应中文搜索", "desc": "不用 key 的中文网页搜索", "author": "yan5236", "config": {"command": "npx", "args": ["-y", "bing-cn-mcp"]}, "homepage": "https://github.com/yan5236/bing-cn-mcp-server", "tags": ["搜索"]},
-    {"id": "12306", "name": "12306 车票查询", "desc": "查火车票余票、车次和中转", "author": "Joooook", "config": {"command": "npx", "args": ["-y", "12306-mcp"]}, "homepage": "https://github.com/Joooook/12306-mcp", "tags": ["出行"]},
-    {"id": "amap", "name": "高德地图", "desc": "地点搜索、路线规划、天气（需要高德 Web 服务 key）", "author": "AMap", "config": {"command": "npx", "args": ["-y", "@amap/amap-maps-mcp-server"], "env": {"AMAP_MAPS_API_KEY": ""}}, "homepage": "https://lbs.amap.com/api/mcp-server/summary", "tags": ["出行", "需要 key"]},
-    {"id": "baidu-map", "name": "百度地图", "desc": "地点检索、路线、天气（需要百度地图 AK）", "author": "Baidu Maps", "config": {"command": "npx", "args": ["-y", "@baidumap/mcp-server-baidu-map"], "env": {"BAIDU_MAP_API_KEY": ""}}, "homepage": "https://github.com/baidu-maps/mcp", "tags": ["出行", "需要 key"]},
-    {"id": "calculator", "name": "计算器", "desc": "精确计算，不让她心算出错", "author": "githejie", "config": {"command": "uvx", "args": ["mcp-server-calculator"]}, "homepage": "https://github.com/githejie/mcp-server-calculator", "tags": ["工具"]}
+    {
+      "id": "time",
+      "name": "时间与时区",
+      "desc": "查任意城市现在几点、换算时区",
+      "author": "Model Context Protocol",
+      "config": {
+        "command": "uvx",
+        "args": [
+          "mcp-server-time",
+          "--local-timezone=Asia/Shanghai"
+        ]
+      },
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+      "tags": [
+        "工具"
+      ]
+    },
+    {
+      "id": "fetch",
+      "name": "读网页",
+      "desc": "别人发来链接时，打开网页看看讲了什么",
+      "author": "Model Context Protocol",
+      "config": {
+        "command": "uvx",
+        "args": [
+          "mcp-server-fetch"
+        ]
+      },
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+      "tags": [
+        "网络"
+      ]
+    },
+    {
+      "id": "memory",
+      "name": "知识图谱记忆",
+      "desc": "把人、事、关系存成知识图谱，适合需要长期记细节的人设",
+      "author": "Model Context Protocol",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-memory"
+        ]
+      },
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+      "tags": [
+        "记忆"
+      ]
+    },
+    {
+      "id": "howtocook",
+      "name": "程序员做饭指南",
+      "desc": "菜谱、今天吃什么",
+      "author": "worryzyy",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "howtocook-mcp"
+        ]
+      },
+      "homepage": "https://github.com/worryzyy/HowToCook-mcp",
+      "tags": [
+        "生活"
+      ]
+    },
+    {
+      "id": "bing-cn",
+      "name": "必应中文搜索",
+      "desc": "不用 key 的中文网页搜索",
+      "author": "yan5236",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "bing-cn-mcp"
+        ]
+      },
+      "homepage": "https://github.com/yan5236/bing-cn-mcp-server",
+      "tags": [
+        "搜索"
+      ]
+    },
+    {
+      "id": "12306",
+      "name": "12306 车票查询",
+      "desc": "查火车票余票、车次和中转",
+      "author": "Joooook",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "12306-mcp"
+        ]
+      },
+      "homepage": "https://github.com/Joooook/12306-mcp",
+      "tags": [
+        "出行"
+      ]
+    },
+    {
+      "id": "amap",
+      "name": "高德地图",
+      "desc": "地点搜索、路线规划、天气（需要高德 Web 服务 key）",
+      "author": "AMap",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@amap/amap-maps-mcp-server"
+        ],
+        "env": {
+          "AMAP_MAPS_API_KEY": ""
+        }
+      },
+      "homepage": "https://lbs.amap.com/api/mcp-server/summary",
+      "tags": [
+        "出行",
+        "需要 key"
+      ]
+    },
+    {
+      "id": "baidu-map",
+      "name": "百度地图",
+      "desc": "地点检索、路线、天气（需要百度地图 AK）",
+      "author": "Baidu Maps",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@baidumap/mcp-server-baidu-map"
+        ],
+        "env": {
+          "BAIDU_MAP_API_KEY": ""
+        }
+      },
+      "homepage": "https://github.com/baidu-maps/mcp",
+      "tags": [
+        "出行",
+        "需要 key"
+      ]
+    },
+    {
+      "id": "calculator",
+      "name": "计算器",
+      "desc": "精确计算，不让她心算出错",
+      "author": "githejie",
+      "config": {
+        "command": "uvx",
+        "args": [
+          "mcp-server-calculator"
+        ]
+      },
+      "homepage": "https://github.com/githejie/mcp-server-calculator",
+      "tags": [
+        "工具"
+      ]
+    }
   ],
-  "personas": [],
+  "personas": [
+    {
+      "id": "wanzhou",
+      "name": "晚舟",
+      "desc": "深夜电台「夜航船」的主播，声音很轻，话不多，但每句都接得住你；中午才醒，凌晨两点下播",
+      "author": "Anima",
+      "source": "market/personas/wanzhou",
+      "tags": [
+        "温柔",
+        "倾听",
+        "深夜",
+        "音乐"
+      ]
+    },
+    {
+      "id": "xiaoman",
+      "name": "小满",
+      "desc": "在江南山里守着一间小茶铺，懂节气和时令吃食，日子过得慢，嘴却不慢",
+      "author": "Anima",
+      "source": "market/personas/xiaoman",
+      "tags": [
+        "治愈",
+        "节气",
+        "山居",
+        "美食"
+      ]
+    }
+  ],
   "frameworks": [
-    {"id": "nonebot", "name": "NoneBot2", "homepage": "https://nonebot.dev/", "how": "bridge", "note": "在 NoneBot 项目里装插件（nb plugin install …），用 OneBot V11 正向 WebSocket 连到 Anima 的桥接端口"},
-    {"id": "koishi", "name": "Koishi", "homepage": "https://koishi.chat/", "how": "bridge", "note": "在 Koishi 控制台的插件市场里装插件，adapter-onebot 的协议选 ws，地址填 Anima 的桥接端口"},
-    {"id": "astrbot", "name": "AstrBot", "homepage": "https://github.com/AstrBotDevs/AstrBot", "how": "native", "note": "AstrBot 插件可以直接装进 Anima；也可以让整个 AstrBot 通过反向 WebSocket 接在桥上"}
+    {
+      "id": "nonebot",
+      "name": "NoneBot2",
+      "homepage": "https://nonebot.dev/",
+      "how": "bridge",
+      "note": "在 NoneBot 项目里装插件（nb plugin install …），用 OneBot V11 正向 WebSocket 连到 Anima 的桥接端口"
+    },
+    {
+      "id": "koishi",
+      "name": "Koishi",
+      "homepage": "https://koishi.chat/",
+      "how": "bridge",
+      "note": "在 Koishi 控制台的插件市场里装插件，adapter-onebot 的协议选 ws，地址填 Anima 的桥接端口"
+    },
+    {
+      "id": "astrbot",
+      "name": "AstrBot",
+      "homepage": "https://github.com/AstrBotDevs/AstrBot",
+      "how": "native",
+      "note": "AstrBot 插件可以直接装进 Anima；也可以让整个 AstrBot 通过反向 WebSocket 接在桥上"
+    }
   ]
 }

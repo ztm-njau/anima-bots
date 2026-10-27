@@ -13,20 +13,23 @@
 
 </div>
 
-Anima 是一个引擎，人设是她的灵魂。同一套引擎可以是元气满满的「可乐」、深夜电台的「晚舟」、山里茶铺的「小满」，
+Anima 是一个引擎，人设是她的灵魂。同一套引擎可以是元气满满的「可乐」、DeepSeek 的拟人鲸鱼娘「大肥鱼」、从明末饥荒里走出来的「满穗」，
 也可以是你自己写的任何人。她住在 QQ、B 站、微信和抖音，在你的电脑上运行。
 
 ![对话测试台：左边聊天，右边是她此刻的状态和内心独白](docs/playground.jpg)
 
 ## 人设
 
-![人设库：可乐、晚舟、小满，可以试聊、编辑、复制、导出，一键切换](docs/personas.jpg)
+![人设库：可乐、大肥鱼、满穗，可以试聊、编辑、复制、导出，一键切换](docs/personas.jpg)
 
 | | 她是谁 | 适合 |
 | --- | --- | --- |
 | **可乐** `claudette` | 住在网线里的 AI 女孩，好奇、嘴贫、心软，爱星空和冷知识 | 热闹的群 |
-| **晚舟** `wanzhou` | 深夜电台「夜航船」的主播，话不多，但每句都接得住你；中午才醒，凌晨两点下播 | 私聊、夜猫子 |
-| **小满** `xiaoman` | 在江南山里守着一间小茶铺，懂节气和时令吃食；五点四十起床，十点就睡 | 温和的群、日常 |
+| **大肥鱼** `dafeiyu` | DeepSeek 的拟人鲸鱼娘（网友同人，非官方）：聪明、爱想太多、有点懒，最讨厌别人说她胖；数学和代码张口就来 | 技术群、学习 |
+| **满穗** `mansui` | 以《饿殍：明末千里行》的满穗为原型的同人人设：饥荒年月里活下来的姑娘，如今在小城演皮影戏；话少、机灵、外冷内热 | 私聊、慢慢熟 |
+
+人设市场里还有两个可以一键安装的原创人设：深夜电台主播「晚舟」和山里茶铺的「小满」。
+大肥鱼和满穗是同人创作：大肥鱼不代表深度求索公司；满穗的角色版权归原作者所有，这里只有爱好者写的文字，不含游戏素材和原台词。
 
 - **自己写一个**：在后台「人设」页填表，或者写一句话让模型起草完整设定，或者导入 SillyTavern 角色卡。
   一个人设最少只要 `bot.toml` 和 `persona.md`，作息、表情包、输出过滤都有共享默认值。
@@ -103,7 +106,7 @@ uv run anima play             # 然后在「模型提供商」里接入 DeepSeek
 粘贴 key、测试连接、听听她在这个模型上的样子、做一套人设考试、实时切换。详见 [docs/providers.md](docs/providers.md)。
 
 ```bash
-uv run anima persona list     # 有哪些人设；anima persona use wanzhou 设为默认
+uv run anima persona list     # 有哪些人设；anima persona use mansui 设为默认
 uv run anima new luna         # 新建一个人设
 uv run anima plugin list      # 插件；anima plugin enable hitokoto
 uv run anima doctor           # 哪些就绪、缺什么、怎么补
@@ -117,10 +120,10 @@ uv run anima service install  # 让她在后台常驻（macOS launchd）
 
 ```
 bots/
-  claudette/ wanzhou/ xiaoman/   人设：bot.toml、persona.md、examples.md、life.toml、世界书……
+  claudette/ dafeiyu/ mansui/   人设：bot.toml、persona.md、examples.md、life.toml、世界书……
   _template/                     共享默认值：作息、表情包起手包、输出过滤；新人设从这里开始
 plugins/                         自带的 Anima 插件（一言、关键词回复、倒数日）
-market/index.json                插件市场索引，欢迎提 PR
+market/index.json                插件市场索引，欢迎提 PR；market/personas/ 是可安装的人设包（晚舟、小满）
 src/anima/
   core/                          大脑、防抖、发言策略、分段、拟人节奏、作息、心情、记忆、反思、生活、提示词
   llm/                           模型提供商目录、注册表、路由
@@ -152,3 +155,4 @@ data/<人设>/                     记忆、日志、语音缓存、cookie（不
 你安装的第三方插件遵循它们各自的许可证。
 
 Anima 与腾讯、哔哩哔哩、字节跳动、DeepSeek、Anthropic、AstrBot、NoneBot、Koishi 以及它能对接的任何平台、框架或模型提供商均无关联。
+「大肥鱼」是网友创作的 DeepSeek 拟人同人形象，未经深度求索认可；「满穗」出自零创游戏的《饿殍：明末千里行》，角色权利归原作者所有。

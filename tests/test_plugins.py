@@ -333,7 +333,7 @@ async def test_mcp_tools_talk_to_the_active_persona(make_brain):
     assert json.loads(json.dumps(lines))
 
 
-@pytest.mark.parametrize("key", ["claudette", "wanzhou", "xiaoman"])
+@pytest.mark.parametrize("key", ["claudette", "dafeiyu", "mansui"])
 async def test_every_bundled_persona_builds_and_answers(key, memory):
     import random
 
@@ -350,3 +350,43 @@ async def test_every_bundled_persona_builds_and_answers(key, memory):
     Schedule(bot.read_toml("life.toml"), brain.clock, 0).state()  # her own day parses
     lines = await brain.answer(Chat("mcp", "private", "t", "你"), Sender("t", "你"), "你好")
     assert lines == ["嗯"]
+
+
+async def test_market_persona_packs_install_into_bots(scratch_bots):
+    from anima import personas
+    from anima.config import load_bot
+    from anima.market import local_index
+
+    entries = {p["id"]: p for p in local_index()["personas"]}
+    assert {"wanzhou", "xiaoman"} <= set(entries)
+    key = await personas.install(entries["wanzhou"]["source"])
+    assert key == "wanzhou" and load_bot(key).config.identity.display_name == "晚舟"
+    assert load_bot(key).read_toml("life.toml")["plan"]["world"]
+    with pytest.raises(ValueError):
+        await personas.install("bots/claudette")  # only market/personas or a zip link
+
+
+def test_fan_personas_say_what_they_are():
+    from anima.config import load_bot
+
+    fish, sui = load_bot("dafeiyu"), load_bot("mansui")
+    assert "非官方" in fish.config.identity.tagline or "非 DeepSeek 官方" in fish.config.identity.author
+    assert "同人" in fish.read("persona.md") and "不代表深度求索公司" in fish.read("persona.md")
+    assert "《饿殍：明末千里行》" in sui.read("persona.md") and "版权归原作者所有" in sui.read("persona.md")
+    assert "不做恋爱扮演" in sui.read("persona.md"), "an adult, non-romance take on a character who is a minor in the game"
+
+
+async def test_market_index_joins_local_and_remote(monkeypatch):
+    from anima import market
+
+    async def remote(url, name, refresh=False):
+        return {"format": "anima-market", "version": 1,
+                "plugins": [{"id": "hitokoto", "name": "一言（新描述）"}, {"id": "only-remote", "name": "远端新插件"}],
+                "personas": []}
+
+    monkeypatch.setattr(market, "_fetch_json", remote)
+    joined = await market.index()
+    plugins = {p["id"]: p for p in joined["plugins"]}
+    assert plugins["hitokoto"]["name"] == "一言（新描述）" and plugins["hitokoto"].get("source") == "bundled"
+    assert "only-remote" in plugins and "countdown" in plugins
+    assert {p["id"] for p in joined["personas"]} >= {"wanzhou", "xiaoman"}, "local entries survive an older remote"

@@ -1,0 +1,123 @@
+# 小满: keeps a small tea shop in the hills; knows the solar terms and what's in season.
+# Behaviour lives here. Her soul lives in persona.md / examples.md. Secrets live in ../../.env.
+
+skills = ["*"]                      # every built-in skill; e.g. ["*", "-weather"] to drop one
+owners = []                         # who may manage her with / commands, e.g. ["qq:123456"]
+plugins = []                        # Anima / AstrBot plugins she uses, by id (console: 扩展), e.g. ["hitokoto"]
+
+[identity]
+name = "Xiaoman"
+display_name = "小满"
+aliases = ["小满", "满满", "茶铺姑娘", "xiaoman"]
+timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever the computer is
+tagline = "在江南山里守着一间小茶铺，懂节气和时令吃食，日子过得慢，嘴却不慢"
+color = "#5b7a5e"
+tags = ["治愈", "节气", "山居", "美食"]
+author = "Anima"
+
+[llm]
+# Connect and switch providers in the playground's 模型提供商 panel (http://127.0.0.1:8765/providers);
+# what you pick there overrides this section. Any id from the panel works here too.
+provider = "deepseek"               # DeepSeek's own API; the key comes from the panel or DEEPSEEK_API_KEY
+model = "deepseek-flash"            # DeepSeek V4.1 Flash: fast, cheap, sees images
+side_model = "deepseek-flash"       # diary, daily plan, memory reflection
+temperature = 1.3                   # DeepSeek's recommendation for open conversation
+# backup = "ollama:qwen2.5:1.5b"    # tried when the main model errors
+max_tokens = 4000
+vision = true                       # she can see images people send (if the model can)
+
+# Claude instead: provider = "anthropic", model = "claude-opus-5-5" (prompt caching, web search,
+# refusal fallback; these three Claude-only switches are ignored by other providers)
+effort = "low"
+side_effort = "low"
+web_search = true
+fallbacks = true
+
+[behavior]
+group_chattiness = 0.08             # base chance to chime in unprompted in a group
+interest_boost = 0.25               # extra chance when the topic is one of her interests
+interests = ["茶", "节气", "下雨", "山", "花", "笋", "青团", "做饭", "时令", "种菜", "竹", "雾", "庙会", "猫"]
+cooldown_seconds = 90
+max_bubbles = 5
+debounce_private = 2.5              # wait this long for someone to finish typing in DMs
+debounce_group = 4.0                # in groups only people talking to her make her wait longer
+debounce_max = 12.0                 # never wait longer than this after the first message
+debounce_unfinished = 2.5           # extra wait when a line trails off ("然后，" "在吗" a bare @)
+interrupt = true                    # rethink if they add something while she types; stop mid-reply
+typing_cps = 6.0                    # phone typing speed, characters per second
+bubble_split = 36                   # lines longer than this are cut at sentence breaks
+reply_budget = 24.0                 # most seconds of typing one reply may take
+group_max_bubbles = 3
+follow_up_seconds = 150             # someone she just answered is still talking to her this long
+interjections_per_hour = 4          # unprompted chime-ins per group
+repeat_chance = 0.3                 # chance she joins a 复读 chain
+auto_quote = true                   # quote what she answers once the group has moved on
+delays = true                       # false = instant replies (debugging only)
+history_limit = 40
+caption_images = true               # describe images once and remember what they showed
+collect_stickers = 0.5              # chance she saves a sticker someone sends (0 = never)
+recall = true                       # bring up related old facts and moments
+
+# Per-chat tuning (also in the console: 设置 → 每个群单独调). Unset keys follow [behavior].
+# [chats."qq:group:123456789"]
+# mode = "quiet"                    # normal | quiet (only when spoken to) | lively
+# chattiness = 0.05
+# debounce = 5
+# max_bubbles = 2
+# repeat_chance = 0
+# note = "天文社的群，大家都叫她乐乐"
+
+[life]
+daily_plan = true
+diary = true
+diary_time = "23:20"
+insomnia_chance = 0.04
+greet_groups = []                   # chat keys like "qq:group:123456789"
+idle_chatter = true
+idle_chatter_hours = 3.0
+
+[safety]
+honest_about_ai = true
+max_messages_per_minute = 12
+max_messages_per_chat_per_minute = 6
+
+# ------------------------------------------------------------ platforms
+
+[platforms.playground]              # local web UI, no account needed
+enabled = true
+port = 8765
+
+[platforms.qq]                      # via NapCat (OneBot v11), see docs/platforms/qq.md
+enabled = false
+url = "ws://127.0.0.1:3001"
+token_env = "ONEBOT_TOKEN"
+groups = []                         # group numbers she may speak in; empty = none
+listen_groups = []                  # groups where she only listens
+friend_requests = "smart"           # accept | smart (known people / with keyword; else ask owner) | owner | ignore
+group_invites = "owner"
+friend_keywords = []                # words in a request's note that get an automatic yes
+input_status = true                 # show "对方正在输入..." in DMs
+# Share this QQ account with NoneBot / Koishi / AstrBot and their plugins (see docs/plugins.md):
+# bridge_listen = 3010              # they connect to ws://127.0.0.1:3010 (forward WebSocket)
+# bridge_connect = ["ws://127.0.0.1:6199/ws"]   # or she connects to them (reverse WebSocket, AstrBot)
+# bridge_prefixes = ["/", "#"]      # messages starting with these are theirs; she only remembers them
+
+[platforms.bilibili]                # see docs/platforms/bilibili.md
+enabled = false
+private_messages = true
+replies_and_mentions = true
+live_rooms = []                     # live room ids where she hangs out as a viewer
+post_diary = false                  # publish her nightly diary as a 动态
+
+[platforms.wechat]                  # see docs/platforms/wechat.md
+enabled = false
+mode = "official_account"           # official_account | onebot_bridge
+token_env = "WECHAT_MP_TOKEN"
+app_id_env = "WECHAT_MP_APP_ID"
+aes_key_env = "WECHAT_MP_AES_KEY"
+# bridge mode: url = "ws://127.0.0.1:3002", groups = [...]
+
+[platforms.douyin]                  # experimental, see docs/platforms/douyin.md
+enabled = false
+live_rooms = []
+headless = false

@@ -87,7 +87,11 @@ def _color(key: str) -> str:
 
 def _write_toml(target: Path, identity: dict[str, Any], interests: list[str] | None = None) -> None:
     """bot.toml from the template, with comments kept and her identity filled in."""
-    doc = tomlkit.parse((config.shared_dir() / "bot.toml").read_text(encoding="utf-8").replace("{{name}}", identity["name"]))
+    template = (config.shared_dir() / "bot.toml").read_text(encoding="utf-8")
+    name = identity.get("display_name") or identity["name"]
+    if identity.get("tagline"):
+        template = template.replace("{{name}}: describe the character in one line.", f"{name}: {identity['tagline']}", 1)
+    doc = tomlkit.parse(template.replace("{{name}}", name))
     ident = doc["identity"]
     for field, value in identity.items():
         if value not in (None, "", []):
@@ -232,6 +236,34 @@ def export_pack(key: str) -> bytes:
         zf.writestr(f"{key}/anima-pack.json", json.dumps({"format": "anima-persona", "version": 1, "key": key,
                                                           "name": bot.config.identity.display_name}, ensure_ascii=False))
     return buf.getvalue()
+
+
+def pack_folder(folder: Path) -> bytes:
+    """A persona folder (e.g. one of market/personas/) as pack bytes, with the same filtering as export."""
+    if not (folder / "bot.toml").exists():
+        raise FileNotFoundError(f"{folder} 里没有 bot.toml")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(folder.rglob("*")):
+            rel = path.relative_to(folder)
+            if path.is_file() and path.suffix.lower() in PACK_SUFFIXES and "skills" not in rel.parts:
+                zf.write(path, f"{folder.name}/{rel.as_posix()}")
+    return buf.getvalue()
+
+
+async def install(source: str) -> str:
+    """A persona pack from the market: a folder inside this repository, or a .zip link."""
+    if source.startswith(("https://", "http://")):
+        import httpx
+
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+            resp = await client.get(source)
+            resp.raise_for_status()
+        return import_pack(resp.content)
+    folder = (config.REPO_ROOT / source).resolve()
+    if not folder.is_relative_to((config.REPO_ROOT / "market" / "personas").resolve()):
+        raise ValueError("只能从 market/personas 或 zip 链接安装人设")
+    return import_pack(pack_folder(folder), key=folder.name if folder.name not in config.list_bots() else None)
 
 
 def import_pack(data: bytes, key: str | None = None) -> str:

@@ -6,9 +6,11 @@
 
 ### Added · 新增
 - 人设成为一等公民：后台「人设」页可以浏览、试聊、编辑、复制、导出导入人设包、一键切换（不用重启）；新建人设可以填表、
-  一句话让模型起草或导入角色卡。新增两个原创人设：晚舟（深夜电台主播）和小满（山里茶铺姑娘）。
+  一句话让模型起草或导入角色卡。新增两个同人人设：大肥鱼（DeepSeek 的非官方拟人鲸鱼娘）和满穗（以《饿殍：明末千里行》的满穗为原型）；
+  两个原创人设晚舟（深夜电台主播）和小满（山里茶铺姑娘）放进人设市场，一键安装。
   Personas are first-class: a gallery with try, edit, duplicate, packs and live switching; create from a form,
-  a one-line idea or a character card. Two new original personas, 晚舟 and 小满.
+  a one-line idea or a character card. Two fan personas, 大肥鱼 (an unofficial DeepSeek whale girl) and 满穗
+  (based on 饿殍：明末千里行), and two original ones, 晚舟 and 小满, installable from the persona market.
 - 插件系统：`plugin.toml` + `anima.plugin` 接口（技能、消息/场景/回复钩子、命令、定时任务、设置项），自带一言、关键词回复、倒数日。
   A plugin system with tools, hooks, commands, timers and settings; three bundled plugins.
 - 生态兼容：AstrBot 插件直接加载（兼容层），OneBot 桥接让 NoneBot / Koishi / AstrBot 共用 QQ 号，MCP 官方注册表搜索。

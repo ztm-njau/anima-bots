@@ -14,8 +14,8 @@ Personas are swappable; plugins come from the ecosystems already on GitHub.
 
 </div>
 
-Anima is the engine; a persona is its soul. The same engine can be the lively 可乐 (Claudette), the
-late-night radio host 晚舟, the tea-shop keeper 小满 in the hills, or anyone you write. She lives on
+Anima is the engine; a persona is its soul. The same engine can be the lively 可乐 (Claudette), 大肥鱼
+(a fan-made whale-girl personification of DeepSeek), 满穗 (who survived a late-Ming famine), or anyone you write. She lives on
 QQ, Bilibili, WeChat and Douyin, and runs on your own computer.
 
 ![The playground: chat on the left, her state and inner monologue on the right](docs/playground.en.jpg)
@@ -27,8 +27,13 @@ QQ, Bilibili, WeChat and Douyin, and runs on your own computer.
 | | Who she is | Good for |
 | --- | --- | --- |
 | **可乐** `claudette` | an AI girl who lives in the network: curious, sharp-tongued, soft-hearted, loves stars and odd facts | lively groups |
-| **晚舟** `wanzhou` | host of the late-night web radio show 夜航船: few words, all of them listening; wakes at noon, signs off at 2 a.m. | one-on-one, night owls |
-| **小满** `xiaoman` | keeps a small tea shop in the hills south of the Yangtze, knows the solar terms and what's in season; up at 5:40, asleep by 10 | warm groups, daily life |
+| **大肥鱼** `dafeiyu` | a whale girl, the community's personification of DeepSeek (fan-made, unofficial): clever, overthinks, a bit lazy, hates being called fat; maths and code on tap | tech groups, studying |
+| **满穗** `mansui` | a fan persona based on the heroine of *饿殍：明末千里行 (The Hungry Lamb)*: a girl who survived the famine and now runs a shadow-puppet show in a small town; few words, sharp, warm underneath | one-on-one, slow friendships |
+
+The persona market has two more original personas to install in one click: the late-night radio
+host 晚舟 and the tea-shop keeper 小满. 大肥鱼 and 满穗 are fan works: 大肥鱼 does not represent
+DeepSeek; 满穗 belongs to her creators, and the persona here is fan-written text with no game art,
+music or dialogue.
 
 - **Write your own** on the console's Personas page: fill in a form, describe her in one sentence
   and let the model draft the rest, or import a SillyTavern character card. A persona needs only
@@ -122,7 +127,7 @@ gateway, Ollama / LM Studio…), at http://127.0.0.1:8765/providers: paste a key
 she sounds on that model, run the persona exam, switch live. See [docs/providers.md](docs/providers.md).
 
 ```bash
-uv run anima persona list     # the personas; anima persona use wanzhou makes one the default
+uv run anima persona list     # the personas; anima persona use mansui makes one the default
 uv run anima new luna         # a new persona
 uv run anima plugin list      # plugins; anima plugin enable hitokoto
 uv run anima doctor           # what's ready, what's missing, how to fix it
@@ -136,10 +141,10 @@ uv run anima service install  # keep her running in the background (launchd)
 
 ```
 bots/
-  claudette/ wanzhou/ xiaoman/   personas: bot.toml, persona.md, examples.md, life.toml, 世界书…
+  claudette/ dafeiyu/ mansui/   personas: bot.toml, persona.md, examples.md, life.toml, 世界书…
   _template/                     shared defaults: schedule, starter stickers, output guard
 plugins/                         bundled Anima plugins (hitokoto, keyword replies, countdowns)
-market/index.json                the market index; pull requests welcome
+market/index.json                the market index; pull requests welcome; market/personas/ holds installable packs (晚舟, 小满)
 src/anima/
   core/                          brain, debounce, policy, bubbles, pacing, schedule, mood, memory, reflection, life, prompt
   llm/                           provider catalog, registry, routing
@@ -177,4 +182,6 @@ Issues and pull requests are welcome, and so are persona packs and plugins for
 implements the interface only and contains no AstrBot code; plugins you install keep their own licenses.
 
 Anima is not affiliated with Tencent, Bilibili, ByteDance, DeepSeek, Anthropic, AstrBot, NoneBot,
-Koishi or any other platform, framework or model provider it can talk to.
+Koishi or any other platform, framework or model provider it can talk to. 大肥鱼 is a fan-made
+personification of DeepSeek, not endorsed by DeepSeek; 满穗 comes from 零创游戏's *饿殍：明末千里行*, and the
+character's rights belong to her creators.

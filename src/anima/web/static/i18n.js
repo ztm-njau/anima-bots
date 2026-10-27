@@ -296,6 +296,8 @@ const I18N = (() => {
     "社区人设包会列在这里（market/index.json，欢迎提 PR）。也可以在「人设」页直接导入 .zip 或角色卡。": "Community persona packs are listed here (market/index.json; pull requests welcome). You can also import a .zip or character card on the Personas page.",
     "已启用": "Enabled",
     "安装": "Install",
+    "已安装": "Installed",
+    "人设包只有文字和图片，不含代码，可以放心安装。想分享自己的人设，欢迎给 market/index.json 提 PR；也可以在「人设」页直接导入 .zip 或角色卡。": "Persona packs are text and pictures only, no code, so they're safe to install. To share yours, open a pull request on market/index.json; you can also import a .zip or character card on the Personas page.",
     "安装中…": "Installing…",
     "在你的 NoneBot 项目里运行": "Run this in your NoneBot project",
     "需要环境变量：": "Needs environment variables: ",

@@ -63,11 +63,24 @@ async def _fetch_json(url: str, name: str, refresh: bool = False) -> Any:
     return data
 
 
+SECTIONS = ("plugins", "mcp", "personas", "frameworks")
+
+
 async def index(refresh: bool = False) -> dict[str, Any]:
-    remote = await _fetch_json(INDEX_URL, "anima-index", refresh)
+    """The local index joined with the one on GitHub: new entries from either side show up, and for an
+    entry both have, the GitHub copy (the newer description) wins."""
     local = local_index()
-    return remote if isinstance(remote, dict) and remote.get("format") == "anima-market" and \
-        remote.get("version", 0) >= local.get("version", 0) else local
+    remote = await _fetch_json(INDEX_URL, "anima-index", refresh)
+    if not (isinstance(remote, dict) and remote.get("format") == "anima-market"):
+        return local
+    merged = dict(local)
+    for section in SECTIONS:
+        by_id = {e.get("id"): e for e in local.get(section, []) if isinstance(e, dict)}
+        for entry in remote.get(section, []):
+            if isinstance(entry, dict) and entry.get("id"):
+                by_id[entry["id"]] = by_id.get(entry["id"], {}) | entry
+        merged[section] = list(by_id.values())
+    return merged
 
 
 def _match(entry: dict[str, Any], query: str) -> bool:

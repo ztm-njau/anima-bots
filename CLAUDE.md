@@ -1,7 +1,9 @@
 # Working in this repo
 
 Anima is a Python engine for human-like social bots; each persona is a folder under `bots/`
-(可乐 / Claudette, 晚舟 / wanzhou, 小满 / xiaoman; none is special). It runs on the owner's Mac, not in the cloud.
+(可乐 / claudette, 大肥鱼 / dafeiyu, 满穗 / mansui; none is special; 晚舟 and 小满 are installable packs in
+`market/personas/`). 大肥鱼 and 满穗 are fan personas: keep their disclaimers (not DeepSeek official; 满穗 © her
+creators, adult post-story take, no romance roleplay, no graphic famine detail). It runs on the owner's Mac, not in the cloud.
 
 ## Commands
 

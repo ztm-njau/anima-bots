@@ -93,6 +93,14 @@ def gallery_router(runtime: Runtime) -> APIRouter:
             raise _fail(exc) from exc
         return {"key": key, "from": name, **(await list_personas())}
 
+    @router.post("/personas/install")
+    async def install_persona(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        try:
+            key = await personas.install(str(body.get("source") or ""))
+        except Exception as exc:  # noqa: BLE001
+            raise _fail(exc) from exc
+        return {"key": key, "name": config.load_bot(key).config.identity.display_name, **(await list_personas())}
+
     @router.post("/personas/{key}/duplicate")
     async def duplicate(key: str) -> dict[str, Any]:
         try:
@@ -289,6 +297,8 @@ def gallery_router(runtime: Runtime) -> APIRouter:
                 item["plugin_id"] = match.id if match else pid
             elif item["kind"] == "mcp":
                 item["installed"] = pid in servers
+            elif item["kind"] == "persona":
+                item["installed"] = pid in config.list_bots()
         return {"shelf": shelf, "items": items}
 
     return router
