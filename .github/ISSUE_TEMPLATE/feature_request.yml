@@ -1,0 +1,21 @@
+name: 想法与建议 · Feature request
+description: 让她更像一个人，或者让 Anima 更好用 · An idea for Anima
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么 · The problem
+      description: 现在哪里不够好？举个具体的聊天场景最好 · A concrete chat moment helps most
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你的想法 · Your idea
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 其他方案或参考项目 · Alternatives or prior art

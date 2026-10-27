@@ -8,7 +8,7 @@ owners = []                         # who may manage her with / commands, e.g. [
 name = "Claudette"
 display_name = "可乐"
 aliases = ["可乐", "claudette", "克劳黛特", "可乐酱", "乐乐"]
-timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever this Mac is
+timezone = "Asia/Shanghai"          # her life runs on Beijing time, wherever the computer is
 
 [llm]
 # Connect and switch providers in the playground's 模型提供商 panel (http://127.0.0.1:8765/providers);

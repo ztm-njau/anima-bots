@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 安全问题 · Security vulnerability
+    url: https://github.com/ztm-njau/anima-bots/security/advisories/new
+    about: 请私密报告，不要开公开 issue · Report privately, not in a public issue

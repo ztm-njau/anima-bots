@@ -158,7 +158,7 @@ button.ghost { background: transparent; } button.danger { color: var(--bad); }
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/static/i18n.js?v=2"></script>
+<script src="/static/i18n.js?v=3"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { state: null, sel: null, draft: null, found: [], result: null };
@@ -226,7 +226,7 @@ function renderFound() {
   const items = S.found.filter((d) => !d.imported);
   $("found").innerHTML = items.length ? items.map((d) => `
     <div class="found"><div class="logo" style="background:${preset(d.preset)?.color || "#888"};width:28px;height:28px;font-size:11px;border-radius:9px">${esc(preset(d.preset)?.initials || "?")}</div>
-      <span><b>${esc(tr(d.name))}</b><br><code>${esc(d.source)}${d.key_hint ? " · " + esc(d.key_hint) : ""}</code></span>
+      <span><b>${esc(tr(d.name))}</b><br><code>${esc(tr(d.source))}${d.key_hint ? " · " + esc(d.key_hint) : ""}</code></span>
       <button data-id="${esc(d.id)}">${t("导入")}</button></div>`).join("")
     : `<div class="empty">${t("没有发现现成的 key 或本机模型。把 key 放进项目的 .env（如 DEEPSEEK_API_KEY=…），或直接在右侧粘贴。")}</div>`;
   document.querySelectorAll("#found button").forEach((b) => b.onclick = async () => {

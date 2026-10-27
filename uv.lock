@@ -183,10 +183,10 @@ wheels = [
 name = "anima-bots"
 version = "0.1.0"
 source = { editable = "." }
+default-groups = ["bilibili", "dev"]
 dependencies = [
     { name = "aiosqlite" },
     { name = "anthropic" },
-    { name = "bilibili-api-python" },
     { name = "cryptography" },
     { name = "edge-tts" },
     { name = "fastapi" },
@@ -197,7 +197,6 @@ dependencies = [
     { name = "playwright" },
     { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "qrcode" },
     { name = "rich" },
     { name = "tomlkit" },
     { name = "typer" },
@@ -208,6 +207,10 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+bilibili = [
+    { name = "bilibili-api-python" },
+    { name = "qrcode" },
+]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -218,7 +221,6 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "anthropic", specifier = ">=1.0" },
-    { name = "bilibili-api-python", specifier = ">=17" },
     { name = "cryptography", specifier = ">=42" },
     { name = "edge-tts", specifier = ">=6.1" },
     { name = "fastapi", specifier = ">=0.115" },
@@ -229,7 +231,6 @@ requires-dist = [
     { name = "playwright", specifier = ">=1.45" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "qrcode", specifier = ">=7.4" },
     { name = "rich", specifier = ">=13" },
     { name = "tomlkit", specifier = ">=0.13" },
     { name = "typer", specifier = ">=0.12" },
@@ -240,6 +241,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+bilibili = [
+    { name = "bilibili-api-python", specifier = ">=17" },
+    { name = "qrcode", specifier = ">=7.4" },
+]
 dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },

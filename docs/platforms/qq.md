@@ -1,6 +1,6 @@
 # QQ (via NapCat)
 
-NapCat runs Linux QQ inside Docker (OrbStack is already on this Mac) and exposes it as a
+NapCat runs Linux QQ inside Docker (Docker Desktop or OrbStack) and exposes it as a
 OneBot v11 WebSocket on `127.0.0.1:3001`. Claudette connects to it as a client.
 
 1. **Prepare a QQ account for her.** A secondary account, not your main one: automated accounts

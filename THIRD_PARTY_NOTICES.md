@@ -1,0 +1,67 @@
+# Third-party notices · 第三方声明
+
+Anima's own code, docs, persona files and the starter sticker pack are MIT licensed (see `LICENSE`).
+This file lists what Anima uses, talks to, or learned from, and under which terms.
+
+Anima 自己的代码、文档、人设文件和自带表情包都以 MIT 协议发布。下面列出它用到、对接或借鉴的第三方项目及其协议。
+
+## Python dependencies · Python 依赖
+
+Installed by `uv sync` / `pip`, not copied into this repository.
+
+| Package | License | Used for |
+| --- | --- | --- |
+| anthropic, openai | Apache-2.0 | Model APIs |
+| httpx, websockets, uvicorn, python-dotenv | BSD-3-Clause | Networking, web server, `.env` |
+| fastapi, pydantic, typer, rich, loguru, aiosqlite, mcp, tomlkit | MIT | Web API, config, CLI, logging, memory, MCP plugins, settings editor |
+| playwright | Apache-2.0 | Douyin adapter (drives an installed Chrome) |
+| wechatpy | MIT | WeChat official-account adapter |
+| cryptography | Apache-2.0 OR BSD-3-Clause | WeChat message encryption |
+| edge-tts | LGPL-3.0 | Voice notes |
+| tzdata | Apache-2.0 | Time zones |
+| **bilibili-api-python** | **GPL-3.0-or-later** | Bilibili adapter and video lookups |
+| qrcode | BSD | Bilibili QR login |
+
+**About bilibili-api-python (GPL-3.0-or-later).** It is not one of the package's declared
+dependencies. It sits in the `bilibili` dependency group, which `uv sync` installs for local use, and
+Anima imports it only inside the Bilibili adapter and the `bilibili_video` skill. Everything else
+works without it. If you distribute Anima *together with* bilibili-api-python (for example in a
+bundle or image), that combined distribution must follow the GPL-3.0.
+
+**关于 bilibili-api-python（GPL-3.0-or-later）**：它不在本包声明的依赖里，而是放在 `bilibili` 依赖组中，
+`uv sync` 会为本地使用安装它；只有 B 站适配器和 `bilibili_video` 技能会导入它，其他功能不需要它。
+如果你把 Anima 和它打包在一起分发（比如做成镜像），这个组合分发需要遵循 GPL-3.0。
+
+## Services and images Anima talks to · 对接的外部项目
+
+Referenced by name in compose files or docs; not redistributed here. Each has its own license and terms.
+
+- **NapCat** (`mlikiowa/napcat-docker`, github.com/NapNeko/NapCatQQ): OneBot v11 for QQ. Automating a
+  QQ account may break Tencent's terms; use a dedicated account at your own risk.
+- **magpie** (github.com/yetone/magpie, MIT): local model gateway, optional.
+- **Ollama, LM Studio**, and the model providers in `src/anima/llm/catalog.py`: optional backends.
+- **Open-Meteo** (open-meteo.com): weather data for the `weather` skill.
+- **Microsoft Edge text-to-speech**, reached through edge-tts: voice notes.
+- **MCP servers** you add (for example `mcp-server-time`, `mcp-server-fetch`, `howtocook-mcp`): run
+  only if you add them; each under its own license.
+
+## Formats and ideas · 兼容的格式与借鉴的思路
+
+No code from these projects is included.
+
+- **SillyTavern** (AGPL-3.0) world-info JSON and the community **Character Card** specs V2/V3:
+  Anima reads these formats so world books and cards can be imported.
+- **cc-switch** (github.com/farion1231/cc-switch, MIT): provider endpoints and model ids in
+  `catalog.py` follow its public preset catalog (October 2026); the panel's preset gallery and
+  one-click switching are inspired by it.
+- **New API** (github.com/QuantumNous/new-api) and **Cherry Studio** (github.com/CherryHQ/cherry-studio):
+  the connection test, model-list fetch and per-provider settings in the provider panel are inspired by them.
+- **Contributor Covenant** 2.1 (CC BY 4.0): `CODE_OF_CONDUCT.md` is adapted from it.
+
+## Assets · 素材
+
+- The 16 starter stickers in `bots/claudette/memes/` are original drawings made by
+  `scripts/make_starter_stickers.py` from plain shapes (MIT). Their captions are rendered with a
+  system CJK font installed on the machine that runs the script.
+- The landscape backgrounds in `src/anima/web/static/` are original SVGs (MIT).
+- Screenshots in `docs/` show Anima's own interface.

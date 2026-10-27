@@ -1,0 +1,47 @@
+name: 问题反馈 · Bug report
+description: 她哪里不对劲，或者程序出错了 · Something is broken
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈！请不要贴出 API key、cookie、QQ 号或别人的聊天记录。安全问题请走 SECURITY.md。
+        Thanks! Don't paste API keys, cookies, account numbers or other people's chats. Security issues go to SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 · What happened
+      description: 以及你期望的是什么 · and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 · Steps to reproduce
+      placeholder: |
+        1. uv run anima play
+        2. …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及部分 · Area
+      options: [聊天/人设 Chat & persona, 模型提供商 Providers, 管理后台 Console, QQ / NapCat, B站 Bilibili, 微信 WeChat, 抖音 Douyin, 插件 MCP, 安装 Install, 其他 Other]
+  - type: input
+    id: model
+    attributes:
+      label: 使用的模型 · Model
+      placeholder: deepseek-flash / claude-opus-5-5 / ollama:qwen2.5 …
+  - type: textarea
+    id: env
+    attributes:
+      label: 环境 · Environment
+      description: 系统、Python、提交号（git rev-parse --short HEAD）、`uv run anima doctor` 的输出（先去掉敏感信息）
+      placeholder: macOS 27 / Python 3.12 / abc1234
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 · Logs
+      description: data/<bot>/logs/anima.log 里相关的几行（去掉敏感信息）
+      render: text

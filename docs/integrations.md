@@ -15,7 +15,7 @@ README snippet can be pasted into 插件 in the console or into the file:
 ```
 
 Each server starts with the bot; its tools become hers as `<server>__<tool>`. stderr goes to
-`data/<bot>/logs/plugin-<server>.log`. `uvx` and `npx` are already on this Mac.
+`data/<bot>/logs/plugin-<server>.log`. Servers started with `uvx` need [uv](https://docs.astral.sh/uv/), ones started with `npx` need Node.js.
 
 ## SillyTavern: world books and character cards
 
@@ -29,7 +29,7 @@ Each server starts with the bot; its tools become hers as `<server>__<tool>`. st
 
 Anima serves an OpenAI-compatible endpoint whenever the web server runs:
 
-- Base URL `http://127.0.0.1:8765/v1` (from Docker on this Mac: `http://host.docker.internal:8765/v1`)
+- Base URL `http://127.0.0.1:8765/v1` (from a Docker container on the same computer: `http://host.docker.internal:8765/v1`)
 - Model `claudette` (the bot's folder name)
 - Key: set `ANIMA_API_KEY=…` in `.env` and use it; without it only this computer may call.
 

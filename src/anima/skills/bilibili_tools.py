@@ -33,7 +33,10 @@ async def resolve_video_id(text: str) -> tuple[str | None, int | None]:
     required=["link"],
 )
 async def bilibili_video(ctx: SkillContext, args: dict) -> dict:
-    from bilibili_api import video
+    try:
+        from bilibili_api import video
+    except ImportError:
+        return {"error": "这台电脑没装 B 站的库（bilibili-api-python），看不了视频信息"}
 
     bvid, aid = await resolve_video_id(args["link"])
     if not bvid and not aid:

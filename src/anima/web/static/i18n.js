@@ -190,6 +190,8 @@ const I18N = (() => {
     [/^(.+)（(.+)，先用备用）$/, (m, label, why) => `${label} (${tr(why)}; using the backup)`],
     [/^没有编号 (.+) 的请求$/, "no request #$1"], [/^这个请求已经处理过了（(.+)）$/, "already handled ($1)"],
     [/^环境变量 (.+)$/, "env var $1"],
+    [/^本机 magpie 网关（需要网关密钥：运行 (.+)）$/, "local magpie gateway (needs its gateway key: run $1)"],
+    [/^本机 (.+)（(\d+) 个模型）$/, (m, name, n) => `local ${name === "magpie 网关" ? "magpie gateway" : name} (${n === "1" ? "1 model" : n + " models"})`],
     [/^对应的平台没在运行$/, "that platform isn't running"], [/^平台没接受这个操作（可能请求过期了）$/, "the platform refused (the request may have expired)"],
     [/^已同意：(.+)$/, "Approved: $1"], [/^已拒绝：(.+)$/, "Declined: $1"],
   ];

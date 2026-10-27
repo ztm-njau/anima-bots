@@ -4,6 +4,18 @@ version = "0.1.0"
 description = "Anima: a soul engine for human-like social bots. Home of Claudette (可乐)."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "ztm-njau" }]
+keywords = ["chatbot", "persona", "llm", "qq-bot", "onebot", "napcat", "bilibili", "wechat", "deepseek", "claude", "mcp", "sillytavern"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Communications :: Chat",
+    "Natural Language :: Chinese (Simplified)",
+]
 dependencies = [
     "anthropic>=1.0",
     "openai>=1.50",
@@ -18,9 +30,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "python-dotenv>=1.0",
     "tzdata",
-    # platforms and voice
-    "bilibili-api-python>=17",
-    "qrcode>=7.4",
+    # platforms and voice (Bilibili lives in the "bilibili" group below: its library is GPL-3.0)
     "playwright>=1.45",
     "wechatpy>=1.8",
     "cryptography>=42",
@@ -29,11 +39,23 @@ dependencies = [
     "tomlkit>=0.13",
 ]
 
+[project.urls]
+Homepage = "https://github.com/ztm-njau/anima-bots"
+Repository = "https://github.com/ztm-njau/anima-bots"
+Issues = "https://github.com/ztm-njau/anima-bots/issues"
+Changelog = "https://github.com/ztm-njau/anima-bots/blob/main/CHANGELOG.md"
+
 [project.scripts]
 anima = "anima.cli:app"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6"]
+# The Bilibili adapter uses bilibili-api-python (GPL-3.0-or-later). It is installed by `uv sync`
+# for local use but kept out of the package's own dependencies; see THIRD_PARTY_NOTICES.md.
+bilibili = ["bilibili-api-python>=17", "qrcode>=7.4"]
+
+[tool.uv]
+default-groups = ["dev", "bilibili"]
 
 [build-system]
 requires = ["hatchling"]

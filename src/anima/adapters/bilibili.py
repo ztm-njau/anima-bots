@@ -36,6 +36,18 @@ def credential_path(secrets_dir: Path) -> Path:
     return secrets_dir / "bilibili.json"
 
 
+MISSING = ("The Bilibili adapter needs bilibili-api-python (GPL-3.0-or-later), kept out of Anima's own "
+           "dependencies: `uv sync` installs it, or `pip install bilibili-api-python qrcode`.")
+
+
+def available() -> bool:
+    try:
+        import bilibili_api  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def load_credential(secrets_dir: Path):
     from bilibili_api import Credential
 
@@ -56,6 +68,8 @@ def save_credential(secrets_dir: Path, credential) -> Path:
 
 async def qr_login(secrets_dir: Path) -> Path:
     """Interactive QR login in the terminal. Scan with the Bilibili app."""
+    if not available():
+        raise RuntimeError(MISSING)
     from bilibili_api import login_v2
 
     qr = login_v2.QrCodeLogin()
@@ -93,6 +107,9 @@ class BilibiliAdapter(Adapter):
 
     async def start(self, brain) -> None:
         await super().start(brain)
+        if not available():
+            logger.error("[bilibili] {}", MISSING)
+            return
         self.credential = load_credential(self.secrets_dir)
         if not self.credential:
             logger.error("[bilibili] not logged in. Run: uv run anima login bilibili")

@@ -1,6 +1,6 @@
 # Model providers
 
-![The 模型提供商 panel running the persona exam on a local model](providers-panel.jpg)
+![The 模型提供商 (model providers) panel](providers-panel.en.jpg)
 
 Claudette's brain can run on any of 18 providers, switched live from the **模型提供商** panel
 (`uv run anima play`, then http://127.0.0.1:8765/providers) or from the terminal. Her default is
@@ -26,7 +26,7 @@ Beijing time. Her evenings are off-peak, and the prompt layout keeps DeepSeek's 
 
 ## Or let magpie hold the keys
 
-### Deploy it on this Mac (Docker, already running here)
+### Run it in Docker next to Anima
 
 ```bash
 uv run anima magpie up        # start the gateway (auto-restarts), give Anima its own gateway key
@@ -38,9 +38,9 @@ uv run anima magpie logs | down | update
 
 The gateway is `http://127.0.0.1:3425/v1`, the console `http://127.0.0.1:3430` (opened with the
 `MAGPIE_WEB_KEY` in `.env`, so the link works without a password prompt). Both bind to this
-computer only. The Docker build wants a gateway key even from this Mac; `anima magpie up` makes
+computer only. The Docker build wants a gateway key even from the same computer; `anima magpie up` makes
 one inside magpie and saves it in `data/providers.json` without ever printing it. Other agents on
-this Mac (Claude Code, Codex, AstrBot…) can use the same gateway with keys from its console.
+the same computer (Claude Code, Codex, AstrBot…) can use the same gateway with keys from its console.
 
 [magpie](https://github.com/yetone/magpie) (yetone, MIT) is a menu-bar app with one local gateway
 (`127.0.0.1:3425`) for every agent you use: you add DeepSeek, Kimi, your Claude or ChatGPT plan,
