@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import fcntl
 import signal
+import socket
 import sys
 
 from loguru import logger
@@ -18,6 +20,16 @@ from anima.llm import make_provider
 from anima.llm.registry import ProviderStore
 
 WEB_PLATFORMS = {"playground", "wechat"}
+
+
+class AlreadyRunning(RuntimeError):
+    """Another process is already this bot, or holds her web port."""
+
+
+def port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex((host, port)) == 0
 
 
 def setup_logging(bot: Bot, verbose: bool = False) -> None:
@@ -115,7 +127,21 @@ class Runtime:
         self.brain.trace.emit("llm", provider=llm.label, model=llm.model, note=getattr(llm, "note", ""))
         logger.info("Brain now runs on {} · {}", llm.label, llm.model)
 
+    def claim(self) -> None:
+        """One process per bot: two would share one memory file and answer every QQ message twice."""
+        self._lock = (self.bot.data_dir / "anima.lock").open("w")
+        try:
+            fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise AlreadyRunning(f"{self.bot.config.identity.display_name} 已经在另一个 anima 进程里运行了，先关掉那个再启动") from exc
+        if WEB_PLATFORMS & set(self.enabled_platforms()):
+            port = self.port or int(self.bot.config.platform("playground").extras().get("port", 8765))
+            if port_in_use(port):
+                raise AlreadyRunning(f"端口 {port} 已被占用（多半是另一个 anima play/run 还开着）。"
+                                     f"关掉它，或换端口：--port {port + 1}")
+
     async def run(self) -> None:
+        self.claim()
         await self.setup()
         tasks: list[asyncio.Task] = []
         for name, adapter in self.adapters.items():

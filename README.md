@@ -85,6 +85,7 @@ works too. Without any key she runs in demo mode (canned lines). See [docs/provi
 uv run anima doctor           # what's ready, what's missing, how to fix it
 uv run anima providers list   # model providers and what she's running on
 uv run anima eval             # 考考她: the persona exam on the current model
+uv run anima magpie up        # the magpie model gateway in Docker, connected to her
 uv run anima chat             # talk in the terminal
 uv run anima napcat up        # start QQ (scan the QR code in the WebUI)
 uv run anima login bilibili   # QR login for Bilibili

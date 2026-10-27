@@ -91,11 +91,12 @@ class OneBotAdapter(Adapter):
         token = env(self.cfg.token_env)
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         backoff = 2.0
+        failures = 0
         while True:
             try:
                 async with websockets.connect(self.cfg.url, additional_headers=headers, max_size=20 * 2**20) as ws:
                     self.ws = ws
-                    backoff = 2.0
+                    backoff, failures = 2.0, 0
                     logger.info("[{}] connected to OneBot at {}", self.platform, self.cfg.url)
                     asyncio.create_task(self._hello())
                     async for raw in ws:
@@ -107,7 +108,13 @@ class OneBotAdapter(Adapter):
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                logger.warning("[{}] OneBot connection lost ({}); retrying in {:.0f}s", self.platform, exc, backoff)
+                failures += 1
+                if self.self_id is not None:
+                    logger.warning("[{}] OneBot connection lost ({}); retrying in {:.0f}s", self.platform, exc, backoff)
+                elif failures in (1, 5) or failures % 30 == 0:
+                    # Before the first login this is the normal state: NapCat only opens its socket once QQ is in.
+                    logger.info("[{}] waiting for NapCat at {} (QQ not logged in yet? scan with: uv run anima napcat qr)",
+                                self.platform, self.cfg.url)
             finally:
                 self.ws = None
                 self.connected.clear()

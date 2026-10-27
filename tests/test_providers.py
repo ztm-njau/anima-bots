@@ -291,3 +291,36 @@ async def test_gateway_is_detected_and_imports_with_models(store, monkeypatch):
     assert gateway.models == ["deepseek/deepseek-flash", "ollama/qwen2.5:1.5b"] and "magpie" in gateway.source
     entry = store.upsert(gateway.spec)
     assert entry.preset == "magpie" and store.public(entry)["has_key"], "no key needed for a local gateway"
+
+
+async def test_key_guarded_magpie_is_still_detected(store, monkeypatch):
+    """magpie's Docker build answers 401 without a gateway key: show it, with how to connect."""
+    from fastapi.responses import JSONResponse
+
+    from anima.llm.registry import detect
+
+    app = FastAPI()
+
+    @app.get("/v1/models")
+    async def guarded():
+        return JSONResponse({"error": "no API key was sent"}, status_code=401)
+
+    async with serve(app) as base:
+        monkeypatch.setattr(PRESET_BY_ID["magpie"], "base_url", base)
+        for other in ("ollama", "lmstudio"):
+            monkeypatch.setattr(PRESET_BY_ID[other], "base_url", "http://127.0.0.1:9/v1")
+        found = {d.id: d for d in await detect(store)}
+    assert "anima magpie connect" in found["local:magpie"].source
+
+
+def test_one_process_per_bot(tmp_path, monkeypatch):
+    from anima.runtime import AlreadyRunning, Runtime
+
+    first = Runtime("claudette", platforms=[])
+    first.claim()
+    second = Runtime("claudette", platforms=[])
+    with pytest.raises(AlreadyRunning):
+        second.claim()
+    first._lock.close()
+    second.claim()  # free again once the first one is gone
+    second._lock.close()

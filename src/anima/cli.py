@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import plistlib
+import re
 import secrets
 import shutil
 import socket
@@ -25,19 +26,29 @@ service_app = typer.Typer(help="Keep a bot running in the background with launch
 providers_app = typer.Typer(help="Model providers (same as the 模型提供商 panel).", no_args_is_help=True)
 app.add_typer(napcat_app, name="napcat")
 app.add_typer(service_app, name="service")
+magpie_app = typer.Typer(help="Run the magpie model gateway (github.com/yetone/magpie) in Docker.", no_args_is_help=True)
 app.add_typer(providers_app, name="providers")
+app.add_typer(magpie_app, name="magpie")
 console = Console()
 
 NAPCAT_DIR = REPO_ROOT / "infra" / "napcat"
+MAGPIE_DIR = REPO_ROOT / "infra" / "magpie"
+MAGPIE_CONTAINER = "anima-magpie"
+MAGPIE_GATEWAY = "http://127.0.0.1:3425/v1"
 ENV_FILE = REPO_ROOT / ".env"
 DEFAULT_BOT = "claudette"
 
 
 def _run(coro) -> None:
+    from anima.runtime import AlreadyRunning
+
     try:
         asyncio.run(coro)
     except KeyboardInterrupt:
         pass
+    except AlreadyRunning as exc:
+        console.print(f"[red]{escape(str(exc))}[/]")
+        raise typer.Exit(1) from exc
 
 
 # ------------------------------------------------------------------ talking & running
@@ -65,12 +76,13 @@ def chat(bot: str = typer.Argument(DEFAULT_BOT), fast: bool = typer.Option(False
 @app.command()
 def run(bot: str = typer.Argument(DEFAULT_BOT),
         only: str = typer.Option(None, help="只启动这些平台，逗号分隔，比如 qq,bilibili"),
+        port: int = typer.Option(None, help="网页端口，默认读 bot.toml"),
         verbose: bool = typer.Option(False, "-v", help="调试日志")) -> None:
     """Run a bot on every platform enabled in its bot.toml."""
     from anima.runtime import Runtime
 
     platforms = [p.strip() for p in only.split(",")] if only else None
-    _run(Runtime(bot, platforms=platforms, verbose=verbose).run())
+    _run(Runtime(bot, platforms=platforms, verbose=verbose, port=port).run())
 
 
 @app.command()
@@ -392,6 +404,131 @@ def providers_use(provider_id: str, model: str = typer.Option(None), side: str =
     routing = Routing(Target(provider_id, chosen), Target.parse(side), [t for t in [Target.parse(backup)] if t])
     save_routing(load_bot(bot), routing)
     console.print(f"[green]{bot} 以后用[/] {entry.name} · {chosen}")
+
+
+# ------------------------------------------------------------------ magpie
+
+
+def _magpie_compose(*args: str) -> int:
+    return subprocess.call(["docker", "compose", "-f", str(MAGPIE_DIR / "compose.yaml"), "--env-file", str(ENV_FILE), *args],
+                           cwd=MAGPIE_DIR)
+
+
+def _magpie(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["docker", "exec", MAGPIE_CONTAINER, "magpie", *args], capture_output=True, text=True)
+
+
+def _gateway_models(key: str) -> list[str] | None:
+    """Model ids the gateway serves with this key, or None if the key isn't accepted."""
+    import httpx
+
+    try:
+        resp = httpx.get(f"{MAGPIE_GATEWAY}/models", headers={"Authorization": f"Bearer {key}"}, timeout=5)
+    except httpx.HTTPError:
+        return None
+    return [m["id"] for m in resp.json().get("data", [])] if resp.status_code == 200 else None
+
+
+def _magpie_web_key() -> str:
+    from anima.llm.registry import env_lookup
+
+    return env_lookup("MAGPIE_WEB_KEY")
+
+
+@magpie_app.command("init")
+def magpie_init() -> None:
+    """Create the web-console key in .env (once)."""
+    if not _magpie_web_key():
+        _env_set("MAGPIE_WEB_KEY", secrets.token_hex(16))
+    console.print("[green]magpie 准备好了。[/] 下一步：[bold]uv run anima magpie up[/]")
+
+
+@magpie_app.command("up")
+def magpie_up() -> None:
+    """Start the gateway, then connect Anima to it with its own gateway key."""
+    import time
+
+    if not _magpie_web_key():
+        magpie_init()
+    if _magpie_compose("up", "-d") != 0:
+        raise typer.Exit(1)
+    for _ in range(60):
+        status = subprocess.run(["docker", "inspect", "-f", "{{.State.Health.Status}}", MAGPIE_CONTAINER],
+                                capture_output=True, text=True).stdout.strip()
+        if status == "healthy":
+            break
+        time.sleep(1)
+    magpie_connect()
+
+
+@magpie_app.command("connect")
+def magpie_connect() -> None:
+    """Give Anima a gateway key (made inside magpie, saved in data/providers.json, never printed)."""
+    from anima.llm.registry import ProviderStore
+
+    store = ProviderStore()
+    entry = store.get("magpie")
+    key = store.resolve_key(entry)[0] if entry else ""
+    models = _gateway_models(key) if key else None
+    if models is None:
+        out = _magpie("gateway-key", "add", "Anima")
+        found = re.search(r"sk-magpie-[A-Za-z0-9_-]+", out.stdout + out.stderr)
+        if not found:
+            console.print(f"[red]没拿到网关密钥[/]：{escape((out.stderr or out.stdout).strip()[:300])}")
+            raise typer.Exit(1)
+        key = found.group()
+        models = _gateway_models(key)
+        if models is None:
+            console.print("[red]新密钥被网关拒绝了[/]，看看 uv run anima magpie logs")
+            raise typer.Exit(1)
+    entry = store.upsert({"id": entry.id if entry else None, "preset": "magpie", "base_url": MAGPIE_GATEWAY,
+                          "api_key": key, "models": models})
+    ds = [m for m in models if m.split("/", 1)[0] in ("deepseek", "deepseek-ai")]
+    console.print(f"[green]可乐已接上 magpie[/]（网关里有 {len(models)} 个模型）。" + (
+        f"DeepSeek 可用：{', '.join(ds)}，她没有自己的 DeepSeek key 时会自动走这里。" if ds else
+        "magpie 里还没有 DeepSeek：[bold]uv run anima magpie open[/] 打开管理页添加。"))
+
+
+@magpie_app.command("open")
+def magpie_open() -> None:
+    """Open magpie's web console (add providers and keys there)."""
+    key = _magpie_web_key()
+    if not key:
+        raise typer.BadParameter("先运行 uv run anima magpie up")
+    subprocess.call(["open", f"http://127.0.0.1:3430/?k={key}"])  # the key stays in the URL bar, not in this terminal
+
+
+@magpie_app.command("status")
+def magpie_status() -> None:
+    """Container state, providers inside magpie, and what Anima sees."""
+    from anima.llm.registry import ProviderStore
+
+    state = subprocess.run(["docker", "inspect", "-f", "{{.State.Status}} {{.State.Health.Status}}", MAGPIE_CONTAINER],
+                           capture_output=True, text=True).stdout.strip() or "没有运行"
+    console.print(f"容器：{state}")
+    console.print(escape(_magpie("providers").stdout.strip() or "（读不到 provider 列表）"))
+    entry = ProviderStore().get("magpie")
+    models = _gateway_models(ProviderStore.resolve_key(entry)[0]) if entry else None
+    console.print("Anima：" + (f"已接上，{len(models)} 个模型" if models is not None else "还没接上（uv run anima magpie connect）"))
+
+
+@magpie_app.command("down")
+def magpie_down() -> None:
+    """Stop the gateway (providers and keys are kept)."""
+    _magpie_compose("down")
+
+
+@magpie_app.command("logs")
+def magpie_logs(follow: bool = typer.Option(False, "-f/--no-follow")) -> None:
+    """Show the gateway's log."""
+    _magpie_compose("logs", "--tail", "200", *(["-f"] if follow else []))
+
+
+@magpie_app.command("update")
+def magpie_update() -> None:
+    """Pull the newest magpie image and restart on it."""
+    if _magpie_compose("pull") == 0:
+        _magpie_compose("up", "-d")
 
 
 # ------------------------------------------------------------------ launchd

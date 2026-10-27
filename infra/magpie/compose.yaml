@@ -1,0 +1,23 @@
+# magpie (github.com/yetone/magpie): one local gateway that holds your model keys and serves them to
+# every agent over the OpenAI / Anthropic APIs. Managed by `uv run anima magpie up|down|logs|key|update`.
+# Both ports bind to this computer only. From the host, callers need a gateway key (made by
+# `anima magpie up`, saved into Anima's provider store); inside the container any key works.
+services:
+  magpie:
+    image: ghcr.io/yetone/magpie:latest
+    container_name: anima-magpie
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3425:3425"   # the gateway: http://127.0.0.1:3425/v1
+      - "127.0.0.1:3430:3430"   # the web console: add providers and keys here
+    environment:
+      MAGPIE_ADDR: 0.0.0.0:3425
+      MAGPIE_WEB_KEY: ${MAGPIE_WEB_KEY:?run `uv run anima magpie init` first}
+      TZ: Asia/Shanghai
+    volumes:
+      - magpie-config:/config   # providers, keys, accounts, usage: survives upgrades
+    command: [web, --addr, 0.0.0.0:3430, --no-open]
+
+volumes:
+  magpie-config:
+    name: anima-magpie-config

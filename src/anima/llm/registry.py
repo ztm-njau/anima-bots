@@ -272,8 +272,17 @@ async def detect(store: ProviderStore) -> list[Detection]:
     async with httpx.AsyncClient(timeout=0.8) as client:
         for preset_id in ("magpie", "ollama", "lmstudio"):
             p = PRESET_BY_ID[preset_id]
+            token = "magpie"
+            if preset_id == "magpie":  # the Docker build wants a real gateway key even from this computer
+                saved = store.get("magpie")
+                token = (store.resolve_key(saved)[0] if saved else "") or env_lookup("MAGPIE_GATEWAY_KEY") or token
             try:
-                resp = await client.get(f"{p.base_url}/models", headers={"Authorization": "Bearer magpie"})
+                resp = await client.get(f"{p.base_url}/models", headers={"Authorization": f"Bearer {token}"})
+                if preset_id == "magpie" and resp.status_code == 401:
+                    found.append(Detection("local:magpie", p.id, p.name,
+                                           "本机 magpie 网关（需要网关密钥：运行 uv run anima magpie connect）",
+                                           spec={"preset": p.id}, imported=store.get("magpie") is not None))
+                    continue
                 resp.raise_for_status()
                 models = sorted(m["id"] for m in resp.json().get("data", []) if not m["id"].startswith("text-embedding"))
             except (httpx.HTTPError, ValueError, KeyError):

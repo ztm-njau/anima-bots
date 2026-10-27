@@ -26,13 +26,13 @@ html.night, body.night {
 
 /* The landscape is part of the page background itself: nothing to stack, nothing to cover. */
 html {
-  --land: url("/static/landscape.svg");
+  --land: url("/static/landscape.svg?v=6");
   min-height: 100%;
   background: var(--land) center bottom / cover no-repeat fixed, linear-gradient(180deg, var(--bg2) 0%, var(--bg) 46%) fixed, var(--bg);
   background-size: 100% 42vh, auto, auto;
 }
-@media (prefers-color-scheme: dark) { :root:not(.day) { --land: url("/static/landscape-night.svg"); } }
-html.night { --land: url("/static/landscape-night.svg"); }
+@media (prefers-color-scheme: dark) { :root:not(.day) { --land: url("/static/landscape-night.svg?v=6"); } }
+html.night { --land: url("/static/landscape-night.svg?v=6"); }
 body { background: transparent !important; color: var(--ink); }
 #stars { display: none !important; }
 

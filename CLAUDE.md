@@ -23,6 +23,9 @@ Anima is a Python engine for human-like social bots; each bot is a folder under 
   `web/providers.py` + `web/static/providers.html`; it swaps `brain.llm` live.
 - Claude calls: `llm/anthropic_provider.py`. `output_config.effort`, no temperature/top_p (rejected by the API),
   `fallbacks: "default"` behind the `server-side-fallback-2026-07-01` beta.
+- magpie gateway: `infra/magpie/compose.yaml` (container `anima-magpie`, :3425 gateway, :3430 console), managed by
+  `anima magpie up|connect|open|status|logs|down|update`. The Docker build needs a gateway key from the host.
+- One process per bot (`Runtime.claim()`: lock file + port check); a second `anima play/run` exits with a message.
 - `anima eval` / the panel's 考考她 run `evals.py` scenarios on scratch memory; use them before and after prompt changes.
 - Platforms: `adapters/`. Only `send()` is required; capabilities (`typing`, `poke`, `voice`, ...) are optional.
 - Skills: `skills/` with the `@skill` decorator; bot-specific ones in `bots/<name>/skills/*.py`; MCP servers in
